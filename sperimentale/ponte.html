@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ponte Board → pagina (prova)</title>
+<style>
+  /* PAGINA DI PROVA del ponte Board -> webviewer. Riceve valori dall'URL (frammento #… e/o query ?…), li mostra
+     con conteggio animato e registra come Board carica la pagina: quante volte, con quale URL, dentro un iframe o no,
+     se il frammento arriva, se il browser interno ricarica o solo notifica il cambio. Nessun dato reale: usare valori finti.
+     Parametri: v1..v4 (valori), l1..l4 (etichette), u1..u4 (unita'), t (titolo). Esempio:
+     ponte.html#t=Prova&l1=Ricavi&v1=1250000&l2=Costi&v2=980000  */
+  :root { --bar:#5b86d6; --navy:#001a72; --accent:#f5b800; --ink:#1a1a1a; --muted:#6b7280; --line:#dbe2ef; --ok:#2e9e5b; --warn:#c77700; --bad:#c0392b; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  body { font:14px/1.45 "Open Sans", Arial, sans-serif; color:var(--ink); background:#f4f6fa; padding:16px; }
+  h1 { font-size:18px; margin:0 0 2px; color:var(--navy); }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+    box-shadow:0 1px 2px rgba(20,40,90,.07), 0 8px 20px -14px rgba(30,60,130,.35); }
+  .kpi { position:relative; overflow:hidden; }
+  .kpi::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,#6f98e3,#4f79c9); }
+  .kpi .l { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi .v { font-size:30px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; margin-top:2px; }
+  .kpi .v small { font-size:14px; font-weight:400; color:var(--muted); margin-left:4px; }
+  .kpi.empty .v { color:#c3cbdb; }
+  .kpi .d { font-size:12px; margin-top:2px; min-height:1.2em; font-variant-numeric:tabular-nums; }
+  .up { color:var(--ok); } .down { color:var(--bad); }
+  h2 { font-size:13px; margin:0 0 8px; color:var(--navy); text-transform:uppercase; letter-spacing:.05em; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  td { padding:4px 0; border-bottom:1px solid #eef1f7; vertical-align:top; }
+  td:first-child { color:var(--muted); width:38%; padding-right:10px; }
+  td b { font-weight:600; } code { font:12px Consolas, monospace; word-break:break-all; background:#f1f4fa; padding:1px 4px; border-radius:3px; }
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; margin-bottom:14px; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11.5px; font-weight:600; }
+  .yes { background:#e3f5ea; color:var(--ok); } .no { background:#fdebe9; color:var(--bad); } .na { background:#fff3dd; color:var(--warn); }
+  .log { max-height:170px; overflow:auto; font:12px Consolas, monospace; }
+  .log div { padding:2px 0; border-bottom:1px dotted #e6ebf5; }
+  button { font:inherit; font-size:12px; padding:5px 10px; border-radius:6px; border:1px solid #b9c7e6; background:#fff; color:var(--navy); cursor:pointer; margin:0 6px 6px 0; }
+  button:hover { background:#eef3fc; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+  .flash { animation:fl 1s ease-out; } @keyframes fl { from { background:#fff6d6; } to { background:#fff; } }
+  @media (prefers-reduced-motion: reduce) { .flash { animation:none; } }
+</style></head>
+<body>
+  <h1 id="title">Ponte Board → pagina</h1>
+  <div class="sub">Pagina di prova: mostra i valori passati da Board nell'URL e registra come il webviewer la carica.</div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="two">
+    <div class="card" id="cEnv"><h2>Cosa ha ricevuto la pagina</h2><table id="tEnv"></table></div>
+    <div class="card"><h2>Storia dei caricamenti</h2>
+      <div class="log" id="log"></div>
+      <div class="hint">Ogni riga e' un caricamento o un cambio di frammento. Se cambi selezione in Board e compare una nuova riga "caricata", il webviewer ricarica la pagina; se compare "hashchange", la pagina resta e riceve solo il nuovo valore.</div>
+      <div style="margin-top:8px"><button id="bClear">Azzera storia</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Prova della lunghezza dell'URL</h2>
+    <div>Copia un URL di prova, incollalo nel campo «Web address» del webviewer e guarda se la riga «Lunghezza URL ricevuta» coincide.</div>
+    <div style="margin-top:8px" id="pads"></div>
+    <div class="hint">L'URL contiene un valore finto (<code>v1</code>) e un riempimento di caratteri (<code>pad</code>). Se «Riempimento» arriva completo, quella lunghezza passa.</div>
+  </div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var LS = null, SS = null;
+  try { LS = window.localStorage; LS.setItem("ponte_t", "1"); LS.removeItem("ponte_t"); } catch (e) { LS = null; }
+  try { SS = window.sessionStorage; SS.setItem("ponte_t", "1"); SS.removeItem("ponte_t"); } catch (e) { SS = null; }
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function pill(ok, yes, no) { return '<span class="pill ' + (ok === null ? "na" : ok ? "yes" : "no") + '">' + (ok === null ? "n.d." : ok ? yes : no) + "</span>"; }
+  function two(n) { return n < 10 ? "0" + n : n; }
+  function hhmmss(d) { return two(d.getHours()) + ":" + two(d.getMinutes()) + ":" + two(d.getSeconds()); }
+
+  // --- lettura parametri: frammento e query, il frammento vince ---
+  function parse(str) {
+    var o = {}; str = (str || "").replace(/^[#?]/, ""); if (!str) return o;
+    str.split("&").forEach(function (p) {
+      if (!p) return; var i = p.indexOf("="), k = i < 0 ? p : p.slice(0, i), v = i < 0 ? "" : p.slice(i + 1);
+      try { k = decodeURIComponent(k.replace(/\+/g, " ")); v = decodeURIComponent(v.replace(/\+/g, " ")); } catch (e) {}
+      o[k] = v;
+    });
+    return o;
+  }
+  function num(s) {
+    if (s === undefined || s === "") return null;
+    var t = String(s).trim().replace(/\s/g, "");
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");   // 1.250.000,50
+    else if (/^-?\d+,\d+$/.test(t)) t = t.replace(",", ".");                                     // 12,5
+    var n = Number(t); return isFinite(n) ? n : null;
+  }
+  var fmt = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 });
+
+  var view = null, state = { hash: {}, query: {} }, prev = {};
+  try { prev = JSON.parse((SS && SS.getItem("ponte_prev")) || "{}"); } catch (e) { prev = {}; }
+
+  function read() {
+    state.query = parse(location.search); state.hash = parse(location.hash);
+    var all = {}; Object.keys(state.query).forEach(function (k) { all[k] = state.query[k]; });
+    Object.keys(state.hash).forEach(function (k) { all[k] = state.hash[k]; });
+    return all;
+  }
+
+  // --- tessere con conteggio animato ---
+  var kEls = [];
+  function build() {
+    var c = $("#kpis"); c.innerHTML = "";
+    for (var i = 1; i <= 4; i++) {
+      var d = document.createElement("div"); d.className = "card kpi empty";
+      d.innerHTML = '<div class="l">Valore ' + i + '</div><div class="v">—</div><div class="d"></div>';
+      c.appendChild(d); kEls[i] = { root: d, l: d.querySelector(".l"), v: d.querySelector(".v"), d: d.querySelector(".d"), raf: 0 };
+    }
+  }
+  function animate(el, from, to, unit) {
+    cancelAnimationFrame(el.raf);
+    var t0 = performance.now(), dur = reduce ? 0 : 900;
+    function set(x) { el.v.innerHTML = fmt.format(x) + (unit ? "<small>" + esc(unit) + "</small>" : ""); }
+    function step(t) {
+      var p = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - Math.pow(1 - p, 3);
+      set(from + (to - from) * e);
+      if (p < 1) el.raf = requestAnimationFrame(step);
+    }
+    el.raf = requestAnimationFrame(step);
+  }
+  function render(all) {
+    $("#title").textContent = all.t || "Ponte Board → pagina";
+    var nextPrev = {};
+    for (var i = 1; i <= 4; i++) {
+      var el = kEls[i], raw = all["v" + i], n = num(raw), lab = all["l" + i], unit = all["u" + i];
+      el.l.textContent = lab || ("Valore " + i);
+      if (raw === undefined || raw === "") { el.root.classList.add("empty"); el.v.textContent = "—"; el.d.textContent = ""; continue; }
+      el.root.classList.remove("empty");
+      if (n === null) { el.v.textContent = raw; el.d.textContent = ""; nextPrev["v" + i] = null; continue; }
+      var from = typeof prev["v" + i] === "number" ? prev["v" + i] : 0;
+      animate(el, from, n, unit);
+      var diff = typeof prev["v" + i] === "number" ? n - prev["v" + i] : null;
+      el.d.className = "d" + (diff ? (diff > 0 ? " up" : " down") : "");
+      el.d.textContent = diff ? (diff > 0 ? "▲ +" : "▼ ") + fmt.format(diff) + " dal caricamento precedente" : "";
+      nextPrev["v" + i] = n;
+      if (diff) { el.root.classList.remove("flash"); void el.root.offsetWidth; el.root.classList.add("flash"); }
+    }
+    prev = nextPrev;
+    try { if (SS) SS.setItem("ponte_prev", JSON.stringify(prev)); } catch (e) {}
+  }
+
+  // --- diagnostica ---
+  var inFrame = (function () { try { return window.self !== window.top; } catch (e) { return true; } })();
+  var msgs = 0;
+  function env(all) {
+    var href = location.href, padLen = (all.pad || "").length;
+    var rows = [
+      ["Dentro un iframe", pill(inFrame, "sì (webviewer)", "no (finestra normale)")],
+      ["Lunghezza URL ricevuta", "<b>" + href.length + "</b> caratteri"],
+      ["Frammento (#…)", state.hash && Object.keys(state.hash).length ? pill(true, "ricevuto: " + Object.keys(state.hash).length + " parametri", "") : pill(false, "", "assente")],
+      ["Query (?…)", Object.keys(state.query).length ? pill(true, "ricevuta: " + Object.keys(state.query).length + " parametri", "") : pill(false, "", "assente")],
+      ["Riempimento «pad»", all.pad === undefined ? "—" : "<b>" + padLen + "</b> caratteri ricevuti"],
+      ["Referrer", document.referrer ? "<code>" + esc(document.referrer.slice(0, 120)) + "</code>" : "vuoto"],
+      ["Area visibile", window.innerWidth + " × " + window.innerHeight + " px (pixel ratio " + (window.devicePixelRatio || 1) + ")"],
+      ["Memoria del browser", pill(!!LS, "disponibile", "bloccata") + " locale · " + pill(!!SS, "disponibile", "bloccata") + " sessione"],
+      ["Messaggi da Board (postMessage)", '<b id="nMsg">' + msgs + "</b> ricevuti"],
+      ["Codifica", "<code>" + esc(navigator.userAgent.replace(/^Mozilla\/5.0 /, "").slice(0, 90)) + "</code>"],
+      ["URL completo", "<code>" + esc(href.length > 400 ? href.slice(0, 400) + "…" : href) + "</code>"]
+    ];
+    $("#tEnv").innerHTML = rows.map(function (r) { return "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>"; }).join("");
+  }
+
+  var HIST = "ponte_hist";
+  function hist() { try { return JSON.parse((LS && LS.getItem(HIST)) || "[]"); } catch (e) { return []; } }
+  var memHist = [];
+  function addLog(kind, note) {
+    var e = { t: Date.now(), k: kind, len: location.href.length, n: note || "" };
+    var h = LS ? hist() : memHist; h.push(e); if (h.length > 40) h = h.slice(-40);
+    if (LS) { try { LS.setItem(HIST, JSON.stringify(h)); } catch (x) {} } else memHist = h;
+    showLog();
+  }
+  function showLog() {
+    var h = (LS ? hist() : memHist).slice().reverse();
+    $("#log").innerHTML = h.length ? h.map(function (e) {
+      return "<div>" + hhmmss(new Date(e.t)) + " · <b>" + esc(e.k) + "</b> · URL " + e.len + " car." + (e.n ? " · " + esc(e.n) : "") + "</div>";
+    }).join("") : "<div>(vuota)</div>";
+    if (!LS) $("#log").insertAdjacentHTML("afterbegin", "<div>Memoria locale bloccata: la storia dura solo finche' la pagina resta aperta.</div>");
+  }
+
+  // --- generatore di URL di prova per la lunghezza ---
+  function base() { return location.origin + location.pathname; }
+  function padUrl(n) { return base() + "#t=Prova+lunghezza&l1=Valore+finto&v1=" + (1000 + n) + "&pad=" + new Array(n + 1).join("x"); }
+  var pads = $("#pads");
+  [500, 1000, 2000, 4000, 8000].forEach(function (n) {
+    var b = document.createElement("button"); b.textContent = "Copia URL ≈ " + n + " car.";
+    b.onclick = function () {
+      var u = padUrl(Math.max(0, n - (base().length + 60))), done = function () { b.textContent = "Copiato (" + u.length + ")"; setTimeout(function () { b.textContent = "Copia URL ≈ " + n + " car."; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done, function () { window.prompt("Copia questo URL:", u); });
+      else window.prompt("Copia questo URL:", u);
+    };
+    pads.appendChild(b);
+  });
+
+  // --- avvio ---
+  build();
+  var all = read(); render(all); env(all);
+  addLog("caricata", inFrame ? "in iframe" : "finestra normale");
+  addEventListener("hashchange", function () { var a = read(); render(a); env(a); addLog("hashchange", "senza ricaricare la pagina"); });
+  addEventListener("message", function (ev) {
+    msgs++; var n = $("#nMsg"); if (n) n.textContent = msgs;
+    var d; try { d = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data); } catch (e) { d = "?"; }
+    addLog("messaggio", "da " + ev.origin + ": " + String(d).slice(0, 80));
+  });
+  $("#bClear").onclick = function () { memHist = []; try { if (LS) LS.removeItem(HIST); } catch (e) {} showLog(); };
+  // aggiorna le righe dell'ambiente dopo il primo layout (dimensioni dell'iframe definitive)
+  setTimeout(function () { env(read()); }, 400);
+})();
+</script>
+</body></html>

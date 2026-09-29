@@ -18,3 +18,5 @@ Le modifiche a `v1/` cambiano tutte le maschere che lo usano: per cambiamenti in
 ## Sperimentale
 
 `/sperimentale/three-terreno.html` — terreno di punti e linee in three.js (da cdnjs), interattivo: segue il mouse, ogni click lancia un onda gialla, il solido wireframe e cliccabile. Parametri: `fx=0` (fermo), `dens=0.5..2`, `demo=1`. Non e uno sfondo stabile.
+
+`/sperimentale/ponte.html` — pagina di prova del ponte Board -> webviewer: legge valori da frammento/query, li mostra con conteggio animato e registra come Board carica la pagina (ricarica o hashchange, lunghezza URL, iframe, postMessage). Solo valori finti.
