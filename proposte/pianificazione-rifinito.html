@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Pianificazione (rifinito)</title>
+<style>
+  /* Stesso modello di v1 (colori e geometria invariati: barra 63px fino al bordo, colonna 211px, filo giallo,
+     angolo curvo, area bianca) ma con profondita': luce sulla barra, colonna in rilievo che proietta ombra
+     sull'area di lavoro, ombra morbida sotto la barra, filo di luce sul bordo giallo, linee "incise".
+     Nessun testo: titolo, menu e selezioni sono oggetti Board sopra il webviewer. */
+  :root { --bar:#5b86d6; --accent:#f5b800; --line:#4caf50; --side:211px; --head:55px; --gap:8px; --top:calc(var(--gap) + var(--head)); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#f2f2f2; }
+
+  .page { position:fixed; inset:0 0 13px 0; overflow:hidden; background:#fff;
+    box-shadow:0 3px 6px -2px rgba(0,0,0,.14); }
+  .page > * { position:absolute; }
+
+  /* area di lavoro: ombra interna sotto la barra e leggero bordo destro */
+  .under { left:var(--side); right:0; top:var(--top); height:18px; z-index:0;
+    background:linear-gradient(180deg,rgba(40,70,130,.11),rgba(40,70,130,0)); }
+  .edge  { right:0; top:0; bottom:0; width:4px; z-index:0;
+    background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.08)); }
+
+  /* barra: sfumatura verticale, luce sopra, ombra portata sull'area di lavoro */
+  .bar { left:var(--side); right:0; top:0; height:var(--top); z-index:1;
+    background:linear-gradient(180deg,#6f98e3 0%,var(--bar) 48%,#4f79c9 100%);
+    border-bottom:1px dashed var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.38), inset 0 -1px 0 rgba(20,40,100,.16),
+               0 5px 14px -4px rgba(35,65,140,.50); }
+  /* riflesso morbido a sinistra della barra, dove nasce dalla colonna */
+  .bar::before { content:""; position:absolute; left:0; top:0; bottom:0; width:220px;
+    background:linear-gradient(90deg,rgba(255,255,255,.20),rgba(255,255,255,0)); }
+  /* traccia di luce che attraversa la barra */
+  .bar::after { content:""; position:absolute; inset:0;
+    background:radial-gradient(60% 140% at 50% -60%, rgba(255,255,255,.16), rgba(255,255,255,0) 70%); }
+
+  /* colonna: stessa sfumatura grigia dell'originale, in rilievo sopra barra e area di lavoro */
+  .side { left:0; top:0; bottom:0; width:var(--side); z-index:2;
+    border-left:5px solid var(--accent); border-top-left-radius:46px 42px;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.40) 0%,rgba(255,255,255,0) 26%,rgba(0,0,0,.05) 100%),
+      linear-gradient(90deg,#d5d6d5 0%,#e0e0e0 55%,#efefef 100%);
+    box-shadow:inset -1px 0 0 rgba(255,255,255,.7), inset 0 1px 0 rgba(255,255,255,.7),
+               2px 0 3px -1px rgba(0,0,0,.10), 9px 0 18px -8px rgba(20,30,60,.34); }
+  /* luce e ombra sul filo giallo per dargli volume */
+  .side::before { content:""; position:absolute; left:-5px; top:0; bottom:0; width:5px;
+    background:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,0) 60%, rgba(120,80,0,.18));
+    border-top-left-radius:46px 42px; pointer-events:none; }
+  /* zona del titolo: riga incisa (scura + chiara) invece del solo tratteggio */
+  .side::after { content:""; position:absolute; left:0; right:0; top:var(--top); height:2px;
+    background:linear-gradient(180deg,#cfcfcf 0 1px,rgba(255,255,255,.85) 1px 2px); }
+
+  .demo { position: fixed; inset: 0; font: 13px "Open Sans", Arial, sans-serif; pointer-events: none; z-index: 9; }
+  .demo .t { position: absolute; left: 22px; top: 20px; font-size: 26px; color: #111; }
+  .demo .m { position: absolute; top: 28px; font-style: normal; font-size: 12px; color: #fff; }
+  .demo .s { position: absolute; left: 10px; color: #111; font-size: 13px; }
+  .demo em { font-style: italic; }
+</style></head>
+<body>
+  <div class="page">
+    <div class="under"></div>
+    <div class="edge"></div>
+    <div class="bar"></div>
+    <div class="side"></div>
+  </div>
+<script>
+  // ?demo=1 mostra i testi segnaposto (solo per verificare la leggibilita').
+  // Parametri opzionali (colori con %23 al posto di #): bar, accent, line; side, head, gap in px.
+  try {
+    var q = new URLSearchParams(location.search), r = document.documentElement.style;
+    ["bar","accent","line"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, q.get(k)); });
+    ["side","head","gap"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+    if (q.get("demo")) {
+      var d = document.createElement("div"); d.className = "demo";
+      d.innerHTML = '<b class="t">Pianificazione</b><i class="m" style="left:225px">Configurazioni ▾</i><i class="m" style="left:342px">Pianificazione ▾</i><i class="m" style="left:455px">Iniziative Strategiche ▾</i><i class="m" style="left:605px">Reporting ▾</i><em class="s" style="top:538px">Selezioni Attive</em><span class="s" style="top:836px">Rimuovi Selezioni</span>';
+      document.body.appendChild(d);
+    }
+  } catch (e) {}
+</script>
+</body></html>
