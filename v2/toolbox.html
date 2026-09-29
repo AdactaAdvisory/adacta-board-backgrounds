@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Toolbox e istruzioni (v2)</title>
+<style>
+  /* Stessa struttura di Pianificazione v2 (barra fino al bordo, colonna in rilievo, filo giallo) con un'area di
+     lavoro pensata per una toolbox: a sinistra il pannello dei pulsanti da lanciare (con alloggiamenti incassati
+     dove si posano i pulsanti Board), a destra il box delle istruzioni. Nessun testo: titoli dei pannelli, pulsanti
+     e istruzioni sono oggetti Board sopra il webviewer.
+     Parametri (px): rows, pitch, tbw (larghezza toolbox), pad, tbh (altezza toolbox, default fino al fondo),
+     ibh (altezza istruzioni, default fino al fondo); colori con %23: bar, accent, line. ?demo=1 = segnaposto. */
+  :root { --bar:#5b86d6; --accent:#f5b800; --line:#4caf50;
+          --side:211px; --head:55px; --gap:8px; --top:calc(var(--gap) + var(--head));
+          --pad:24px; --tbw:340px; --hd:46px; --tbh:auto; --ibh:auto; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#f4f6fa; }
+
+  .page { position:fixed; inset:0; overflow:hidden; background:#f4f6fa; }
+  .page > * { position:absolute; }
+
+  /* area di lavoro: leggera ombra sotto la barra e bordo destro */
+  .under { left:var(--side); right:0; top:var(--top); height:18px; z-index:0;
+    background:linear-gradient(180deg,rgba(40,70,130,.11),rgba(40,70,130,0)); }
+  .edge  { right:0; top:0; bottom:0; width:4px; z-index:0;
+    background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.08)); }
+
+  /* pannelli */
+  .card { top:calc(var(--top) + var(--pad)); bottom:var(--pad); z-index:1; background:#fff; border-radius:8px;
+    border:1px solid #dbe2ef; overflow:hidden;
+    box-shadow:0 1px 2px rgba(20,40,90,.07), 0 10px 24px -12px rgba(30,60,130,.32); }
+  .card::before { content:""; position:absolute; left:0; top:0; right:0; height:var(--hd);
+    background:linear-gradient(180deg,#f7f9fd 0%,#e9effa 100%); border-bottom:1px solid #d5ddec; }
+  .card::after { content:""; position:absolute; left:0; top:0; width:4px; height:var(--hd);
+    background:linear-gradient(180deg,#6f98e3,#4f79c9); }
+  .toolbox { left:calc(var(--side) + var(--pad)); width:var(--tbw); height:var(--tbh); }
+  .instr   { left:calc(var(--side) + var(--pad) * 2 + var(--tbw)); right:var(--pad); height:var(--ibh);
+    background:linear-gradient(180deg,#fff 0%,#fff 88%,#fafbfe 100%); }
+  .instr::after { background:linear-gradient(180deg,var(--accent),#e6a800); }
+
+  /* alloggiamenti incassati per i pulsanti della toolbox (generati da rows/pitch) */
+  .well { position:absolute; left:16px; right:16px; height:44px; border-radius:8px;
+    background:linear-gradient(180deg,#eef2f9,#f7f9fd); border:1px solid #e0e6f1;
+    box-shadow:inset 0 1px 3px rgba(20,40,90,.12), 0 1px 0 #fff; }
+
+  /* barra: sfumatura verticale, luce sopra, ombra sull'area di lavoro */
+  .bar { left:var(--side); right:0; top:0; height:var(--top); z-index:3;
+    background:linear-gradient(180deg,#6f98e3 0%,var(--bar) 48%,#4f79c9 100%);
+    border-bottom:1px dashed var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.38), inset 0 -1px 0 rgba(20,40,100,.16), 0 5px 14px -4px rgba(35,65,140,.50); }
+  .bar::before { content:""; position:absolute; left:0; top:0; bottom:0; width:220px;
+    background:linear-gradient(90deg,rgba(255,255,255,.20),rgba(255,255,255,0)); }
+  .bar::after { content:""; position:absolute; inset:0;
+    background:radial-gradient(60% 140% at 50% -60%, rgba(255,255,255,.16), rgba(255,255,255,0) 70%); }
+
+  /* colonna in rilievo */
+  .side { left:0; top:0; bottom:0; width:var(--side); z-index:4;
+    border-left:5px solid var(--accent); border-top-left-radius:46px 42px;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.40) 0%,rgba(255,255,255,0) 26%,rgba(0,0,0,.05) 100%),
+      linear-gradient(90deg,#d5d6d5 0%,#e0e0e0 55%,#efefef 100%);
+    box-shadow:inset -1px 0 0 rgba(255,255,255,.7), inset 0 1px 0 rgba(255,255,255,.7),
+               2px 0 3px -1px rgba(0,0,0,.10), 9px 0 18px -8px rgba(20,30,60,.34); }
+  .side::before { content:""; position:absolute; left:-5px; top:0; bottom:0; width:5px;
+    background:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,0) 60%,rgba(120,80,0,.18));
+    border-top-left-radius:46px 42px; pointer-events:none; }
+
+  /* segnaposto (solo con ?demo=1) */
+  .demo { position:fixed; inset:0; font:13px "Open Sans", Arial, sans-serif; pointer-events:none; z-index:9; color:#111; }
+  .demo .t { position:absolute; left:22px; top:20px; font-size:26px; }
+  .demo .m { position:absolute; top:28px; font-style:normal; font-size:12px; color:#fff; }
+  .demo .h { position:absolute; font-weight:700; font-size:14px; }
+  .demo .b { position:absolute; height:44px; border-radius:8px; background:#5b86d6; color:#fff; font-size:13px;
+    display:flex; align-items:center; padding-left:16px; }
+  .demo .p { position:absolute; line-height:1.5; }
+</style></head>
+<body>
+  <div class="page">
+    <div class="under"></div>
+    <div class="edge"></div>
+    <div class="card toolbox" id="tb"></div>
+    <div class="card instr" id="ib"></div>
+    <div class="bar"></div>
+    <div class="side"></div>
+  </div>
+<script>
+  try {
+    var q = new URLSearchParams(location.search), r = document.documentElement.style;
+    ["bar","accent","line"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, q.get(k)); });
+    ["side","head","gap","pad","tbw","tbh","ibh","hd"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+
+    var rows = q.get("rows") ? parseInt(q.get("rows"), 10) : 6, pitch = q.get("pitch") ? parseInt(q.get("pitch"), 10) : 58,
+        hd = q.get("hd") ? parseInt(q.get("hd"), 10) : 46, tb = document.getElementById("tb");
+    for (var i = 0; i < rows; i++) {
+      var w = document.createElement("div"); w.className = "well"; w.style.top = (hd + 16 + i * pitch) + "px"; tb.appendChild(w);
+    }
+    if (!q.get("tbh")) r.setProperty("--tbh", "auto");   // di default il pannello arriva fino al fondo
+    if (q.get("demo")) {
+      var side = 211, pad = q.get("pad") ? parseInt(q.get("pad"), 10) : 24, tbw = q.get("tbw") ? parseInt(q.get("tbw"), 10) : 340, ty = 63;
+      var x0 = side + pad, x1 = side + pad * 2 + tbw, h = "";
+      h += '<b class="t">Toolbox</b><i class="m" style="left:225px">Configurazioni ▾</i><i class="m" style="left:342px">Strumenti ▾</i>';
+      h += '<span class="h" style="left:' + (x0 + 16) + 'px;top:' + (ty + pad + 14) + 'px">Strumenti</span>';
+      h += '<span class="h" style="left:' + (x1 + 16) + 'px;top:' + (ty + pad + 14) + 'px">Istruzioni</span>';
+      for (var j = 0; j < rows; j++)
+        h += '<div class="b" style="left:' + (x0 + 16) + 'px;top:' + (ty + pad + hd + 16 + j * pitch) + 'px;width:' + (tbw - 32) + 'px">Pulsante ' + (j + 1) + '</div>';
+      h += '<div class="p" style="left:' + (x1 + 20) + 'px;top:' + (ty + pad + hd + 20) + 'px;width:520px">1. Scegli lo strumento dalla toolbox.<br>2. Controlla le selezioni attive a sinistra.<br>3. Avvia e attendi il messaggio di conferma.</div>';
+      var d = document.createElement("div"); d.className = "demo"; d.innerHTML = h; document.body.appendChild(d);
+    }
+  } catch (e) {}
+</script>
+</body></html>
