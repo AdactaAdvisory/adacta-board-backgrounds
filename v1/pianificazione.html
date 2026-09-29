@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Pianificazione (menu a barra + colonna selezioni)</title>
+<style>
+  /* Sfondo standard "Pianificazione": barra titolo/menu blu in alto, colonna grigia a sinistra
+     con filo giallo, area di lavoro bianca. Nessun testo: titolo, voci di menu e selezioni
+     sono oggetti Board posizionati sopra al webviewer.
+     Parametri: si cambiano da query string, es. ?bar=%235b86d6&side=211&head=55&accent=%23f5b800 */
+  :root {
+    --bar:    #5b86d6;   /* barra superiore */
+    --accent: #f5b800;   /* filo giallo a sinistra */
+    --side:   211px;     /* larghezza colonna sinistra */
+    --head:   55px;      /* altezza barra superiore */
+    --gap:    8px;       /* margine sopra la barra */
+    --line:   #4caf50;   /* filo tratteggiato sotto la barra */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f2f2f2; }
+
+  .page { position: fixed; inset: 0 0 13px 0; background: #fff; }
+
+  /* barra superiore */
+  .bar {
+    position: absolute; left: var(--side); right: 0; top: var(--gap); height: var(--head);
+    background: var(--bar);
+    border-bottom: 1px dashed var(--line);
+  }
+
+  /* colonna sinistra con sfumatura e filo giallo */
+  .side {
+    position: absolute; left: 0; top: 0; bottom: 0; width: var(--side);
+    background: linear-gradient(90deg, #d5d6d5 0%, #e0e0e0 55%, #efefef 100%);
+    border-right: 1px dashed #d0d0d0;
+    border-left: 5px solid var(--accent);
+    border-top-left-radius: 46px 42px;   /* angolo curvo in alto a sinistra */
+  }
+  /* zona del titolo: stesso grigio ma con bordo tratteggiato, come nel modello */
+  .side::before {
+    content: ""; position: absolute; left: 0; right: 0; top: var(--gap); height: var(--head);
+    border-bottom: 1px dashed #d8d8d8;
+  }
+
+  /* leggera ombra sul bordo destro dell'area di lavoro */
+  .page::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 3px;
+    background: linear-gradient(90deg, rgba(0,0,0,0), rgba(0,0,0,.06));
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="side"></div>
+    <div class="bar"></div>
+  </div>
+<script>
+  // Parametri opzionali da query string: bar, accent, line (colori, %23 al posto di #), side, head, gap (px)
+  try {
+    var q = new URLSearchParams(location.search), r = document.documentElement.style;
+    ["bar", "accent", "line"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, q.get(k)); });
+    ["side", "head", "gap"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+  } catch (e) {}
+</script>
+</body>
+</html>
