@@ -13,7 +13,7 @@
   .side::before { content:""; position:absolute; left:0; right:0; top:var(--gap); height:var(--head);
     border-bottom:1px solid #DDE4F3; }
   .side::after { content:""; position:absolute; left:0; top:var(--gap); width:4px; height:var(--head); background:var(--accent); }
-  .bar { position:absolute; left:var(--side); right:0; top:var(--gap); height:var(--head);
+  .bar { position:absolute; left:var(--side); right:0; top:0; height:calc(var(--gap) + var(--head));
     background:var(--bar); border-bottom:3px solid var(--accent); z-index:1; }
   .demo { position: fixed; inset: 0; font: 13px Arial, sans-serif; pointer-events: none; z-index: 9; }
   .demo .t { position: absolute; left: 22px; top: 20px; font-size: 26px; color: #1a1a1a; }
