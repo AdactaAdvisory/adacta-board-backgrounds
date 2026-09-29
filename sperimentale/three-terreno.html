@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Terreno three.js (sperimentale)</title>
+<style>
+  /* SPERIMENTALE. Stessa cornice di Pianificazione v2 (barra fino al bordo, colonna in rilievo, filo giallo) con,
+     nell'area di lavoro, un terreno di punti e linee in three.js: ondeggia piano, segue il mouse e a ogni click
+     parte un'onda d'urto gialla. Il solido wireframe in alto a destra e' cliccabile (gira e lancia un'onda).
+     Tutto resta chiaro e a bassa opacita' per non disturbare gli oggetti Board sopra. Nessun testo.
+     Parametri: ?fx=0 (fermo, senza animazione), ?demo=1 (testi segnaposto), ?dens=1..2 (densita', default 1),
+     bar/accent/line colori (%23), side/head/gap in px. Richiede WebGL: senza, resta la cornice su fondo chiaro. */
+  :root { --bar:#5b86d6; --accent:#f5b800; --line:#4caf50; --side:211px; --head:55px; --gap:8px; --top:calc(var(--gap) + var(--head)); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#fff; }
+  .page { position:fixed; inset:0; overflow:hidden; background:linear-gradient(180deg,#fff 0%,#fff 45%,#f3f6fc 100%); }
+  .page > * { position:absolute; }
+
+  #gl { left:var(--side); right:0; top:var(--top); bottom:0; width:calc(100% - var(--side)); height:calc(100% - var(--top)); z-index:0; display:block; }
+  .under { left:var(--side); right:0; top:var(--top); height:18px; z-index:1; pointer-events:none;
+    background:linear-gradient(180deg,rgba(40,70,130,.11),rgba(40,70,130,0)); }
+  .edge { right:0; top:0; bottom:0; width:4px; z-index:1; pointer-events:none;
+    background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.08)); }
+
+  .bar { left:var(--side); right:0; top:0; height:var(--top); z-index:3;
+    background:linear-gradient(180deg,#6f98e3 0%,var(--bar) 48%,#4f79c9 100%);
+    border-bottom:1px dashed var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.38), inset 0 -1px 0 rgba(20,40,100,.16), 0 5px 14px -4px rgba(35,65,140,.50); }
+  .bar::before { content:""; position:absolute; left:0; top:0; bottom:0; width:220px;
+    background:linear-gradient(90deg,rgba(255,255,255,.20),rgba(255,255,255,0)); }
+  .bar::after { content:""; position:absolute; inset:0;
+    background:radial-gradient(60% 140% at 50% -60%, rgba(255,255,255,.16), rgba(255,255,255,0) 70%); }
+
+  .side { left:0; top:0; bottom:0; width:var(--side); z-index:4;
+    border-left:5px solid var(--accent); border-top-left-radius:46px 42px;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.40) 0%,rgba(255,255,255,0) 26%,rgba(0,0,0,.05) 100%),
+      linear-gradient(90deg,#d5d6d5 0%,#e0e0e0 55%,#efefef 100%);
+    box-shadow:inset -1px 0 0 rgba(255,255,255,.7), inset 0 1px 0 rgba(255,255,255,.7),
+               2px 0 3px -1px rgba(0,0,0,.10), 9px 0 18px -8px rgba(20,30,60,.34); }
+  .side::before { content:""; position:absolute; left:-5px; top:0; bottom:0; width:5px;
+    background:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,0) 60%,rgba(120,80,0,.18));
+    border-top-left-radius:46px 42px; pointer-events:none; }
+
+  .demo { position:fixed; inset:0; font:13px "Open Sans", Arial, sans-serif; pointer-events:none; z-index:9; color:#111; }
+  .demo .t { position:absolute; left:22px; top:20px; font-size:26px; }
+  .demo .m { position:absolute; top:28px; font-style:normal; font-size:12px; color:#fff; }
+  .demo .s { position:absolute; left:10px; }
+  .demo em { font-style:italic; }
+</style></head>
+<body>
+  <div class="page">
+    <canvas id="gl"></canvas>
+    <div class="under"></div>
+    <div class="edge"></div>
+    <div class="bar"></div>
+    <div class="side"></div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), rs = document.documentElement.style;
+  ["bar","accent","line"].forEach(function (k) { if (q.get(k)) rs.setProperty("--" + k, q.get(k)); });
+  ["side","head","gap"].forEach(function (k) { if (q.get(k)) rs.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+
+  if (q.get("demo")) {
+    var d = document.createElement("div"); d.className = "demo";
+    d.innerHTML = '<b class="t">Pianificazione</b><i class="m" style="left:225px">Configurazioni ▾</i><i class="m" style="left:342px">Pianificazione ▾</i><i class="m" style="left:455px">Iniziative Strategiche ▾</i><i class="m" style="left:605px">Reporting ▾</i><em class="s" style="top:538px">Selezioni Attive</em><span class="s" style="top:836px">Rimuovi Selezioni</span>';
+    document.body.appendChild(d);
+  }
+  if (typeof THREE === "undefined") return;
+
+  var still = q.get("fx") === "0" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var dens = Math.min(2, Math.max(.5, parseFloat(q.get("dens") || "1")));
+  var canvas = document.getElementById("gl"), renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); } catch (e) { return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(42, 1, .1, 200);
+  camera.position.set(0, 15, 24); camera.lookAt(0, 0, -8);
+
+  // ---- terreno: punti + linee, altezza calcolata nel vertex shader ----
+  var COLS = Math.round(130 * dens), ROWS = Math.round(70 * dens), W = 92, D = 58, Z0 = -46;
+  var pos = new Float32Array(COLS * ROWS * 3), i, j, k = 0;
+  for (j = 0; j < ROWS; j++) for (i = 0; i < COLS; i++) {
+    pos[k++] = (i / (COLS - 1) - .5) * W; pos[k++] = 0; pos[k++] = Z0 + (j / (ROWS - 1)) * D;
+  }
+  var idx = [];
+  for (j = 0; j < ROWS; j++) for (i = 0; i < COLS - 1; i++) idx.push(j * COLS + i, j * COLS + i + 1);
+  for (i = 0; i < COLS; i += 2) for (j = 0; j < ROWS - 1; j++) idx.push(j * COLS + i, (j + 1) * COLS + i);
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+
+  var shocks = []; for (i = 0; i < 4; i++) shocks.push(new THREE.Vector4(0, 0, -1e3, 0));
+  var U = { uTime: { value: 0 }, uMouse: { value: new THREE.Vector3(0, 0, 0) }, uShock: { value: shocks }, uPulse: { value: 0 } };
+
+  var COMMON = [
+    "uniform float uTime; uniform vec3 uMouse; uniform vec4 uShock[4]; uniform float uPulse;",
+    "varying float vRing; varying float vFade;",
+    "float terrain(vec2 p, out float ring) {",
+    "  float t = uTime;",
+    "  float h = 1.25*sin(p.x*.22 + t*.55)*cos(p.y*.20 + t*.45) + .55*sin(p.x*.47 - t*.85 + p.y*.28) + .3*sin(p.y*.6 + t*.7);",
+    "  float md = length(p - uMouse.xy); h += uMouse.z * 2.4 * exp(-md*md/16.0);",
+    "  ring = 0.0;",
+    "  for (int n = 0; n < 4; n++) {",
+    "    float age = t - uShock[n].z;",
+    "    if (uShock[n].w > .5 && age > 0.0 && age < 9.0) {",
+    "      float r = age * 15.0, dd = length(p - uShock[n].xy), e = exp(-age*.42);",
+    "      float w = exp(-pow((dd - r)/1.7, 2.0));",
+    "      h += w * 3.6 * e; ring = max(ring, w * e);",
+    "    }",
+    "  }",
+    "  return h;",
+    "}"
+  ].join("\n");
+
+  function vs(sizeExpr) {
+    return COMMON + [
+      "void main() {",
+      "  vec3 p = position; float ring; p.y = terrain(p.xz, ring); vRing = ring;",
+      "  vFade = smoothstep(-46.0, -6.0, p.z) * smoothstep(46.0, 30.0, abs(p.x)) ;",
+      "  vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;",
+      sizeExpr,
+      "}"
+    ].join("\n");
+  }
+  var COLORS = "vec3 base = vec3(.361,.533,.855); vec3 navy = vec3(0.0,.102,.447); vec3 gold = vec3(1.0,.753,0.0);";
+
+  var pts = new THREE.Points(geo, new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false,
+    vertexShader: vs("  gl_PointSize = (2.4 + vRing*5.0) * (26.0 / -mv.z) * " + renderer.getPixelRatio().toFixed(2) + ";"),
+    fragmentShader: "varying float vRing; varying float vFade; " + "void main(){ " + COLORS +
+      " float d = length(gl_PointCoord - .5); float a = smoothstep(.5,.12,d);" +
+      " vec3 c = mix(mix(base,navy,.25), gold, clamp(vRing*1.4,0.,1.));" +
+      " gl_FragColor = vec4(c, a * vFade * (.55 + vRing*.45)); }"
+  }));
+  var lines = new THREE.LineSegments(geo, new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false,
+    vertexShader: vs(""),
+    fragmentShader: "varying float vRing; varying float vFade; " + "void main(){ " + COLORS +
+      " vec3 c = mix(base, gold, clamp(vRing*1.4,0.,1.));" +
+      " gl_FragColor = vec4(c, vFade * (.16 + vRing*.5)); }"
+  }));
+  scene.add(lines); scene.add(pts);
+
+  // ---- solido wireframe cliccabile ----
+  var ico = new THREE.Group();
+  var solid = new THREE.Mesh(new THREE.IcosahedronGeometry(3, 0), new THREE.MeshBasicMaterial({ color: 0x5c88da, transparent: true, opacity: .10 }));
+  var edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(3, 0)), new THREE.LineBasicMaterial({ color: 0x001a72, transparent: true, opacity: .75 }));
+  var inner = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.OctahedronGeometry(1.7, 0)), new THREE.LineBasicMaterial({ color: 0xffc000, transparent: true, opacity: .95 }));
+  ico.add(solid, edges, inner); ico.position.set(19, 9, -10); scene.add(ico);
+  var spin = 0, hover = false, scaleT = 1;
+
+  // ---- input ----
+  var ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
+  var mouseIn = false, mouseTarget = new THREE.Vector2(0, 0), shockN = 0, t0 = performance.now();
+  function now() { return (performance.now() - t0) / 1000; }
+  function setNdc(e) {
+    var r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  }
+  function groundPoint() { ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, hit) ? hit : null; }
+  function shock(x, z) { var s = shocks[shockN++ % 4]; s.set(x, z, now(), 1); U.uPulse.value = 1; }
+  function overIco() { ray.setFromCamera(ndc, camera); return ray.intersectObject(solid).length > 0; }
+
+  addEventListener("pointermove", function (e) {
+    mouseIn = setNdc(e);
+    if (!mouseIn) return;
+    var g = groundPoint(); if (g) mouseTarget.set(g.x, g.z);
+    hover = overIco(); canvas.style.cursor = hover ? "pointer" : "default";
+    camPX = ndc.x; camPY = ndc.y;
+  });
+  addEventListener("pointerdown", function (e) {
+    if (!setNdc(e)) return;
+    if (overIco()) { spin = 14; shock(ico.position.x, ico.position.z + 6); return; }
+    var g = groundPoint(); if (g) shock(g.x, g.z);
+  });
+  var camPX = 0, camPY = 0, camX = 0, camY = 0;
+
+  function resize() {
+    var r = canvas.getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height);
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    // tiene il solido dentro l'inquadratura anche su schermi stretti
+    ico.position.x = Math.min(19, 9 * camera.aspect);
+  }
+  addEventListener("resize", resize); resize();
+
+  var last = now(), running = true;
+  document.addEventListener("visibilitychange", function () { running = !document.hidden; if (running) last = now(); });
+  function frame() {
+    requestAnimationFrame(frame);
+    if (!running) return;
+    var t = now(), dt = Math.min(.05, t - last); last = t;
+    U.uTime.value = still ? 0 : t;
+    // mouse: segue con inerzia, l'effetto si spegne quando esce
+    U.uMouse.value.x += (mouseTarget.x - U.uMouse.value.x) * .12;
+    U.uMouse.value.y += (mouseTarget.y - U.uMouse.value.y) * .12;
+    U.uMouse.value.z += ((mouseIn && !still ? 1 : 0) - U.uMouse.value.z) * .08;
+    // camera con leggera parallasse
+    camX += (camPX * 2.2 - camX) * .05; camY += (camPY * 1.2 - camY) * .05;
+    camera.position.set(camX, 15 + camY, 24); camera.lookAt(0, 0, -8);
+    // solido
+    spin += (0 - spin) * .03;
+    ico.rotation.y += (.004 + spin * .02) * (still ? 0 : 1); ico.rotation.x += .0025 * (still ? 0 : 1);
+    ico.position.y = 9 + (still ? 0 : Math.sin(t * .9) * .5);
+    scaleT += ((hover ? 1.15 : 1) - scaleT) * .12; ico.scale.setScalar(scaleT);
+    inner.rotation.y -= .01 + spin * .04;
+    solid.material.opacity = .10 + U.uPulse.value * .18; U.uPulse.value *= .94;
+    renderer.render(scene, camera);
+  }
+  frame();
+})();
+</script>
+</body></html>

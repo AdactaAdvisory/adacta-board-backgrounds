@@ -14,3 +14,7 @@ Parametri opzionali da query string (colori con `%23` al posto di `#`): `bar`, `
 Esempio: `pianificazione.html?bar=%23003366&side=240`
 
 Le modifiche a `v1/` cambiano tutte le maschere che lo usano: per cambiamenti incompatibili si crea `v2/`.
+
+## Sperimentale
+
+`/sperimentale/three-terreno.html` — terreno di punti e linee in three.js (da cdnjs), interattivo: segue il mouse, ogni click lancia un onda gialla, il solido wireframe e cliccabile. Parametri: `fx=0` (fermo), `dens=0.5..2`, `demo=1`. Non e uno sfondo stabile.
