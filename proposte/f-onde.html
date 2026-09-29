@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Pianificazione F (onde)</title>
+<style>
+  /* F "Onde": movimento e morbidezza. Barra con sfumatura blu profondo -> azzurro e linee a onda; colonna
+     azzurro chiarissimo con onde stratificate in basso; onde larghissime e trasparenti sul fondo dell'area di
+     lavoro, dietro agli oggetti Board. Bordo giallo come segnalibro nell'angolo. Nessun testo. */
+  :root { --side:211px; --head:55px; --gap:8px; --top:calc(var(--gap) + var(--head)); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#E9EEF8; }
+  .page { position:fixed; inset:0 0 13px 0; overflow:hidden;
+    background:linear-gradient(180deg,#FFFFFF 0%,#FFFFFF 60%,#F5F8FE 100%); }
+  .page > * { position:absolute; }
+  svg { display:block; }
+
+  .waves { left:var(--side); bottom:0; height:min(38vh,340px); width:calc(100% - var(--side)); z-index:0; }
+  .side { left:0; top:0; bottom:0; width:var(--side); overflow:hidden; z-index:2; border-top-left-radius:56px 50px;
+    background:linear-gradient(180deg,#F7F9FD 0%,#EAF0FB 100%); box-shadow:inset -1px 0 0 #D3DDF1; }
+  .side svg { position:absolute; left:0; bottom:0; width:100%; height:360px; }
+  .side::before { content:""; position:absolute; left:0; top:0; width:5px; height:130px;
+    background:linear-gradient(180deg,#FFC000,#FBAE40); border-bottom-right-radius:5px; }
+  .titlezone { left:0; top:var(--gap); width:var(--side); height:var(--head); z-index:3; border-bottom:1px solid #D3DDF1; }
+
+  .bar { left:var(--side); right:0; top:0; height:var(--top); z-index:1; overflow:hidden;
+    background:linear-gradient(95deg,#194165 0%,#1E4F97 40%,#5C88DA 100%);
+    box-shadow:0 6px 18px -8px rgba(25,65,101,.6); }
+  .bar svg { position:absolute; inset:0; width:100%; height:100%; }
+
+  .demo { position: fixed; inset: 0; font: 13px Arial, sans-serif; pointer-events: none; z-index: 9; }
+  .demo .t { position: absolute; left: 22px; top: 20px; font-size: 26px; color: #1a1a1a; }
+  .demo .m { position: absolute; top: 28px; font-style: normal; font-size: 12px; color: #fff; }
+  .demo .s { position: absolute; left: 10px; color: #1a1a1a; font-size: 13px; }
+  .demo em { font-style: italic; }
+</style></head>
+<body>
+  <div class="page">
+    <svg class="waves" viewBox="0 0 1200 340" preserveAspectRatio="none">
+      <path d="M0 200 C200 130 400 270 640 190 S1000 110 1200 190 L1200 340 L0 340Z" fill="#BDCFF0" fill-opacity=".22"/>
+      <path d="M0 250 C240 190 420 310 680 240 S1010 180 1200 250 L1200 340 L0 340Z" fill="#5C88DA" fill-opacity=".10"/>
+      <path d="M0 295 C260 255 460 335 720 290 S1040 255 1200 295 L1200 340 L0 340Z" fill="#194165" fill-opacity=".07"/>
+    </svg>
+    <div class="bar">
+      <svg viewBox="0 0 1000 63" preserveAspectRatio="none" fill="none" stroke="#fff">
+        <path d="M0 40 C120 10 220 60 340 34 S560 6 700 34 S900 58 1000 26" stroke-opacity=".20" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+        <path d="M0 52 C140 24 240 70 360 46 S580 20 720 46 S910 66 1000 40" stroke-opacity=".13" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+        <path d="M0 26 C110 -2 210 46 330 22 S550 -6 690 20 S890 44 1000 12" stroke-opacity=".11" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </div>
+    <div class="side">
+      <svg viewBox="0 0 211 360" preserveAspectRatio="none">
+        <path d="M0 180 C50 140 110 230 211 170 L211 360 L0 360Z" fill="#BDCFF0" fill-opacity=".38"/>
+        <path d="M0 240 C60 200 120 280 211 230 L211 360 L0 360Z" fill="#5C88DA" fill-opacity=".20"/>
+        <path d="M0 300 C70 268 130 330 211 292 L211 360 L0 360Z" fill="#194165" fill-opacity=".14"/>
+      </svg>
+    </div>
+    <div class="titlezone"></div>
+  </div>
+<script>
+  // ?demo=1 mostra i testi segnaposto (solo per verificare la leggibilita). Parametri opzionali: side, head, gap in px.
+  try {
+    var q = new URLSearchParams(location.search), r = document.documentElement.style;
+    ["side","head","gap"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+    if (q.get("demo")) {
+      var d = document.createElement("div"); d.className = "demo";
+      d.innerHTML = '<b class="t">Pianificazione</b><i class="m" style="left:225px">Configurazioni ▾</i><i class="m" style="left:342px">Pianificazione ▾</i><i class="m" style="left:455px">Iniziative Strategiche ▾</i><i class="m" style="left:605px">Reporting ▾</i><em class="s" style="top:538px">Selezioni Attive</em><span class="s" style="top:836px">Rimuovi Selezioni</span>';
+      document.body.appendChild(d);
+    }
+  } catch (e) {}
+</script>
+</body></html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Pianificazione E (geometrico)</title>
+<style>
+  /* E "Geometrico": carattere grafico. Barra blu Adacta pieno con losanghe tono su tono che sfumano a destra e
+     un fascio di tre parallelogrammi gialli come firma; colonna azzurra con taglio diagonale in basso e
+     filo a segmenti; nell'area di lavoro grandi triangoli quasi trasparenti in alto a destra. Nessun testo. */
+  :root { --side:211px; --head:55px; --gap:8px; --top:calc(var(--gap) + var(--head)); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#E6ECF7; }
+  .page { position:fixed; inset:0 0 13px 0; overflow:hidden; background:#FFFFFF; }
+  .page > * { position:absolute; }
+  svg { display:block; }
+
+  .tri { right:0; top:var(--top); width:min(46vw,760px); height:min(60vh,520px); z-index:0; }
+  .side { left:0; top:0; bottom:0; width:var(--side); overflow:hidden; z-index:2; background:#EEF2FB;
+    box-shadow:inset -1px 0 0 #D3DDF1; }
+  .side svg { position:absolute; left:0; bottom:0; width:100%; height:300px; }
+  .side::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px;
+    background:repeating-linear-gradient(180deg,#5C88DA 0 18px,#BDCFF0 18px 26px); }
+  .titlezone { left:0; top:var(--gap); width:var(--side); height:var(--head); z-index:3; border-bottom:1px dashed #B9C9E8; }
+
+  .bar { left:var(--side); right:0; top:0; height:var(--top); z-index:1; overflow:hidden; background:#001A72; }
+  .bar .pat { position:absolute; inset:0; width:100%; height:100%;
+    -webkit-mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.25) 60%,transparent 100%);
+            mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.25) 60%,transparent 100%); }
+  .bar .sig { position:absolute; right:0; top:0; height:100%; width:170px; }
+  .bar::after { content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:#5C88DA; }
+
+  .demo { position: fixed; inset: 0; font: 13px Arial, sans-serif; pointer-events: none; z-index: 9; }
+  .demo .t { position: absolute; left: 22px; top: 20px; font-size: 26px; color: #1a1a1a; }
+  .demo .m { position: absolute; top: 28px; font-style: normal; font-size: 12px; color: #fff; }
+  .demo .s { position: absolute; left: 10px; color: #1a1a1a; font-size: 13px; }
+  .demo em { font-style: italic; }
+</style></head>
+<body>
+  <div class="page">
+    <svg class="tri" viewBox="0 0 760 520" preserveAspectRatio="xMaxYMin slice">
+      <polygon points="760,0 760,470 300,0" fill="#EAF0FB"/>
+      <polygon points="760,0 760,300 500,0" fill="#DCE6F8" fill-opacity=".8"/>
+      <polygon points="760,0 760,140 660,0" fill="#BDCFF0" fill-opacity=".55"/>
+    </svg>
+    <div class="bar">
+      <svg class="pat" width="100%" height="100%">
+        <defs><pattern id="lz" width="44" height="63" patternUnits="userSpaceOnUse">
+          <path d="M22 0 L44 31.5 L22 63 L0 31.5 Z" fill="none" stroke="#5C88DA" stroke-opacity=".38" stroke-width="1"/>
+          <path d="M22 16 L34 31.5 L22 47 L10 31.5 Z" fill="#5C88DA" fill-opacity=".14"/>
+        </pattern></defs>
+        <rect width="100%" height="100%" fill="url(#lz)"/>
+      </svg>
+      <svg class="sig" viewBox="0 0 170 63" preserveAspectRatio="none">
+        <polygon points="80,0 104,0 74,63 50,63" fill="#FFC000"/>
+        <polygon points="112,0 128,0 98,63 82,63" fill="#FBAE40"/>
+        <polygon points="136,0 144,0 114,63 106,63" fill="#FFC000" fill-opacity=".7"/>
+      </svg>
+    </div>
+    <div class="side">
+      <svg viewBox="0 0 211 300" preserveAspectRatio="xMidYMax slice">
+        <polygon points="0,300 211,120 211,300" fill="#5C88DA" fill-opacity=".14"/>
+        <polygon points="0,300 211,190 211,300" fill="#5C88DA" fill-opacity=".16"/>
+        <polygon points="0,300 211,250 211,300" fill="#001A72" fill-opacity=".10"/>
+      </svg>
+    </div>
+    <div class="titlezone"></div>
+  </div>
+<script>
+  // ?demo=1 mostra i testi segnaposto (solo per verificare la leggibilita). Parametri opzionali: side, head, gap in px.
+  try {
+    var q = new URLSearchParams(location.search), r = document.documentElement.style;
+    ["side","head","gap"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+    if (q.get("demo")) {
+      var d = document.createElement("div"); d.className = "demo";
+      d.innerHTML = '<b class="t">Pianificazione</b><i class="m" style="left:225px">Configurazioni ▾</i><i class="m" style="left:342px">Pianificazione ▾</i><i class="m" style="left:455px">Iniziative Strategiche ▾</i><i class="m" style="left:605px">Reporting ▾</i><em class="s" style="top:538px">Selezioni Attive</em><span class="s" style="top:836px">Rimuovi Selezioni</span>';
+      document.body.appendChild(d);
+    }
+  } catch (e) {}
+</script>
+</body></html>
