@@ -4,7 +4,7 @@
 <style>
   /* Stesso modello di v1 (colori e geometria invariati: barra 63px fino al bordo, colonna 211px, filo giallo,
      angolo curvo, area bianca) ma con profondita': luce sulla barra, colonna in rilievo che proietta ombra
-     sull'area di lavoro, ombra morbida sotto la barra, filo di luce sul bordo giallo, linee "incise".
+     sull'area di lavoro, ombra morbida sotto la barra, filo di luce sul bordo giallo, 
      Nessun testo: titolo, menu e selezioni sono oggetti Board sopra il webviewer. */
   :root { --bar:#5b86d6; --accent:#f5b800; --line:#4caf50; --side:211px; --head:55px; --gap:8px; --top:calc(var(--gap) + var(--head)); }
   * { box-sizing: border-box; }
@@ -45,9 +45,6 @@
   .side::before { content:""; position:absolute; left:-5px; top:0; bottom:0; width:5px;
     background:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,0) 60%, rgba(120,80,0,.18));
     border-top-left-radius:46px 42px; pointer-events:none; }
-  /* zona del titolo: riga incisa (scura + chiara) invece del solo tratteggio */
-  .side::after { content:""; position:absolute; left:0; right:0; top:var(--top); height:2px;
-    background:linear-gradient(180deg,#cfcfcf 0 1px,rgba(255,255,255,.85) 1px 2px); }
 
   .demo { position: fixed; inset: 0; font: 13px "Open Sans", Arial, sans-serif; pointer-events: none; z-index: 9; }
   .demo .t { position: absolute; left: 22px; top: 20px; font-size: 26px; color: #111; }
