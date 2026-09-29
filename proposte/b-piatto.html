@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board background — Pianificazione B (piatto)</title>
+<style>
+  /* Variante B: piatta e netta. Barra blu Adacta pieno (contrasto migliore per i testi bianchi),
+     colonna tinta unita azzurro chiarissimo, linea d'accento sotto la barra, angoli vivi. Nessun testo. */
+  :root { --bar:#001A72; --accent:#5C88DA; --side:211px; --head:55px; --gap:8px; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#F3F5FA; }
+  .page { position:fixed; inset:0 0 13px 0; background:#fff; }
+  .side { position:absolute; left:0; top:0; bottom:0; width:var(--side); background:#F1F4FA;
+    border-right:1px solid #DDE4F3; z-index:2; }
+  .side::before { content:""; position:absolute; left:0; right:0; top:var(--gap); height:var(--head);
+    border-bottom:1px solid #DDE4F3; }
+  .side::after { content:""; position:absolute; left:0; top:var(--gap); width:4px; height:var(--head); background:var(--accent); }
+  .bar { position:absolute; left:var(--side); right:0; top:var(--gap); height:var(--head);
+    background:var(--bar); border-bottom:3px solid var(--accent); z-index:1; }
+  .demo { position: fixed; inset: 0; font: 13px Arial, sans-serif; pointer-events: none; z-index: 9; }
+  .demo .t { position: absolute; left: 22px; top: 20px; font-size: 26px; color: #1a1a1a; }
+  .demo .m { position: absolute; top: 28px; font-style: normal; font-size: 12px; color: #fff; }
+  .demo .s { position: absolute; left: 10px; color: #1a1a1a; font-size: 13px; }
+  .demo em { font-style: italic; }
+</style></head>
+<body>
+  <div class="page"><div class="side"></div><div class="bar"></div></div>
+<script>
+  // Parametri opzionali (colori con %23 al posto di #): bar, bar2, accent, side, head, gap. ?demo=1 mostra i testi segnaposto.
+  try {
+    var q = new URLSearchParams(location.search), r = document.documentElement.style;
+    ["bar","bar2","accent"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, q.get(k)); });
+    ["side","head","gap"].forEach(function (k) { if (q.get(k)) r.setProperty("--" + k, parseInt(q.get(k), 10) + "px"); });
+    if (q.get("demo")) {
+      var d = document.createElement("div"); d.className = "demo";
+      d.innerHTML = "<b class=\"t\">Pianificazione</b><i class=\"m\" style=\"left:225px\">Configurazioni ▾</i><i class=\"m\" style=\"left:342px\">Pianificazione ▾</i><i class=\"m\" style=\"left:455px\">Iniziative Strategiche ▾</i><i class=\"m\" style=\"left:605px\">Reporting ▾</i><em class=\"s\" style=\"top:538px\">Selezioni Attive</em><span class=\"s\" style=\"top:836px\">Rimuovi Selezioni</span>";
+      document.body.appendChild(d);
+    }
+  } catch (e) {}
+</script>
+</body></html>
