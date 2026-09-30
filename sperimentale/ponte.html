@@ -200,8 +200,19 @@
   // --- avvio ---
   build();
   var all = read(); render(all); env(all);
-  addLog("caricata", inFrame ? "in iframe" : "finestra normale");
-  addEventListener("hashchange", function () { var a = read(); render(a); env(a); addLog("hashchange", "senza ricaricare la pagina"); });
+  // che tipo di navigazione e' stata e com'e' cambiato l'URL rispetto all'ultimo evento registrato
+  var lastHref = "", lastT = 0;
+  try { lastHref = (LS && LS.getItem("ponte_last")) || ""; lastT = Number((LS && LS.getItem("ponte_last_t")) || 0); } catch (e) {}
+  function rememberLast() { try { if (LS) { LS.setItem("ponte_last", location.href); LS.setItem("ponte_last_t", String(Date.now())); } } catch (e) {} }
+  function diffNote() {
+    var dt = lastT ? Math.round((Date.now() - lastT) / 100) / 10 + " s dopo l'evento precedente" : "primo evento";
+    var same = lastHref ? (lastHref === location.href ? "URL identico al precedente" : "URL diverso dal precedente (" + (location.href.length - lastHref.length >= 0 ? "+" : "") + (location.href.length - lastHref.length) + " car.)") : "";
+    return [same, dt].filter(Boolean).join(" · ");
+  }
+  var navType = "?"; try { navType = performance.getEntriesByType("navigation")[0].type; } catch (e) {}
+  addLog("caricata", (inFrame ? "in iframe" : "finestra normale") + " · navigazione: " + navType + " · " + diffNote());
+  rememberLast();
+  addEventListener("hashchange", function () { var a = read(); render(a); env(a); addLog("hashchange", "senza ricaricare la pagina · " + diffNote()); rememberLast(); });
   addEventListener("message", function (ev) {
     msgs++; var n = $("#nMsg"); if (n) n.textContent = msgs;
     var d; try { d = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data); } catch (e) { d = "?"; }
