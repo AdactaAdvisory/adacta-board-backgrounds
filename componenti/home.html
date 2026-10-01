@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board componente — Home</title>
+<style>
+  /* HOME del modello: testata, avanzamento del ciclo, tessere KPI con confronto e andamento, avvisi, scadenze.
+     Tutti i dati arrivano da Board nel frammento dell'URL (#...), costruito da un blocco Algorithm di tipo Text.
+     Senza parametri mostra dati di esempio con un'etichetta discreta. Regge sia il ricaricamento sia hashchange.
+     Contratto dei parametri (separati da &; i campi interni da |; evitare & e | dentro i testi):
+       t=Titolo   s=Sottotitolo   a=Aggiornato al (data AAAA-MM-GG o testo)   cmp=etichetta del confronto (es. vs AP)
+       c=Fase1,Fase2,Fase3   cs=fase corrente (1..n)   cb=fase bloccata (facoltativo)
+       k1..k6=Etichetta|valore|confronto|unita|segno|serie     segno: u (piu' e' meglio, default) o d (meno e' meglio)
+                                                              serie: valori separati da virgola, facoltativa (andamento)
+       n1..n4=livello|Testo      livello: info, warn, alert
+       d1..d4=Etichetta|AAAA-MM-GG
+     Parametri della pagina: inset=0 toglie il margine a sinistra della testata (lasciato libero per l'icona di Board). */
+  :root { --bar:#5b86d6; --navy:#001a72; --accent:#f5b800; --ink:#1a1a1a; --muted:#6b7280; --line:#dbe2ef;
+          --ok:#2e9e5b; --warn:#c77700; --bad:#c0392b; --info:#4f79c9; --inset:44px; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  body { font:14px/1.45 "Open Sans", Arial, sans-serif; color:var(--ink); background:#fff; }
+  .wrap { padding:16px 22px 22px; }
+
+  header { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; padding-left:var(--inset); margin-bottom:16px; }
+  h1 { font-size:22px; line-height:1.2; margin:0; color:var(--navy); letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+  .asof { color:var(--muted); font-size:12px; white-space:nowrap; }
+  .demo-badge { display:inline-block; margin-left:8px; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:600; background:#fff3dd; color:var(--warn); vertical-align:2px; }
+
+  /* avanzamento del ciclo */
+  .steps { display:flex; align-items:center; gap:0; margin:0 0 18px; overflow:hidden; }
+  .step { flex:1 1 0; min-width:0; display:flex; align-items:center; gap:8px; position:relative; padding:0 8px 0 0; }
+  .step .dot { flex:none; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700;
+    background:#e9eef8; color:var(--muted); border:2px solid #d3dcef; }
+  .step .nm { font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .step::after { content:""; flex:1 1 12px; min-width:10px; height:2px; background:#d3dcef; margin-left:4px; }
+  .step:last-child::after { display:none; }
+  .step.done .dot { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .step.done .nm { color:var(--ink); }
+  .step.done::after { background:var(--ok); }
+  .step.cur .dot { background:var(--navy); border-color:var(--navy); color:#fff; box-shadow:0 0 0 4px rgba(79,121,201,.22); }
+  .step.cur .nm { color:var(--navy); font-weight:700; }
+  .step.blk .dot { background:var(--bad); border-color:var(--bad); color:#fff; }
+  .step.blk .nm { color:var(--bad); font-weight:700; }
+  @media (prefers-reduced-motion: no-preference) { .step.cur .dot { animation:pulse 2.4s ease-in-out infinite; } }
+  @keyframes pulse { 0%,100% { box-shadow:0 0 0 4px rgba(79,121,201,.22); } 50% { box-shadow:0 0 0 7px rgba(79,121,201,.10); } }
+
+  /* tessere KPI: 6 -> 3 per riga, 4 -> 4 per riga, altrimenti automatico; sotto i 760px a 2, sotto i 460px a 1 */
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:14px; margin-bottom:16px; }
+  .grid.n6 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .grid.n4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  @media (max-width:760px) { .grid.n6, .grid.n4 { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:460px) { .grid.n6, .grid.n4 { grid-template-columns:minmax(0,1fr); } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 1px 2px rgba(20,40,90,.07), 0 10px 22px -14px rgba(30,60,130,.35); }
+  .kpi { position:relative; padding:14px 16px 12px 18px; overflow:hidden; min-width:0; }
+  .kpi::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,#6f98e3,#4f79c9); }
+  .kpi.good::before { background:linear-gradient(180deg,#43b873,#2e9e5b); }
+  .kpi.bad::before  { background:linear-gradient(180deg,#d9574a,#c0392b); }
+  .kpi .l { font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kpi .v { font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; line-height:1.15; margin-top:4px; white-space:nowrap; font-size:34px; }
+  .kpi .v small { font-size:.45em; font-weight:600; color:var(--muted); margin-left:5px; }
+  .kpi .d { margin-top:4px; font-size:12.5px; min-height:1.3em; font-variant-numeric:tabular-nums; color:var(--muted); }
+  .kpi .d b { font-weight:700; }
+  .kpi .d.good b { color:var(--ok); } .kpi .d.bad b { color:var(--bad); }
+  .kpi svg { display:block; width:100%; height:30px; margin-top:8px; overflow:visible; }
+  .spark-line { fill:none; stroke:var(--info); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round; }
+  .spark-area { fill:rgba(79,121,201,.10); stroke:none; }
+  .spark-dot { fill:var(--navy); }
+  @media (prefers-reduced-motion: no-preference) { .spark-line { stroke-dasharray:1; stroke-dashoffset:1; animation:draw 1s .15s ease-out forwards; } }
+  @keyframes draw { to { stroke-dashoffset:0; } }
+  .kpi.empty .v { color:#c3cbdb; }
+
+  /* avvisi e scadenze */
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  .panel { padding:14px 16px; }
+  .panel h2 { margin:0 0 8px; font-size:12px; color:var(--navy); text-transform:uppercase; letter-spacing:.06em; }
+  .row { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-top:1px solid #eef1f7; }
+  .row:first-of-type { border-top:0; }
+  .rail { flex:none; width:4px; align-self:stretch; border-radius:2px; background:var(--info); }
+  .rail.warn { background:#e5a000; } .rail.alert { background:var(--bad); }
+  .row .tx { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .chip { flex:none; padding:2px 9px; border-radius:11px; font-size:11.5px; font-weight:600; background:#e9eef8; color:var(--navy); white-space:nowrap; }
+  .chip.warn { background:#fff3dd; color:var(--warn); } .chip.alert { background:#fdebe9; color:var(--bad); } .chip.ok { background:#e3f5ea; color:var(--ok); }
+  .empty-note { color:var(--muted); font-size:12.5px; }
+</style></head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var SS = null; try { SS = window.sessionStorage; SS.setItem("h_t", "1"); SS.removeItem("h_t"); } catch (e) { SS = null; }
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var nf = function (d) { return new Intl.NumberFormat("it-IT", { maximumFractionDigits: d, minimumFractionDigits: 0 }); };
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function parse(str) {
+    var o = {}; str = (str || "").replace(/^[#?]/, ""); if (!str) return o;
+    str.split("&").forEach(function (p) {
+      if (!p) return; var i = p.indexOf("="), k = i < 0 ? p : p.slice(0, i), v = i < 0 ? "" : p.slice(i + 1);
+      try { k = decodeURIComponent(k.replace(/\+/g, " ")); v = decodeURIComponent(v.replace(/\+/g, " ")); } catch (e) {}
+      o[k] = v;
+    });
+    return o;
+  }
+  function num(s) {
+    if (s === undefined || s === null || String(s).trim() === "") return null;
+    var t = String(s).trim().replace(/\s/g, "");
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
+    else if (/^-?\d+,\d+$/.test(t)) t = t.replace(",", ".");
+    var n = Number(t); return isFinite(n) ? n : null;
+  }
+  // numeri leggibili in poco spazio: 1.250.000 -> 1,25 mln ; 32.235.333.201 -> 32,2 mld
+  function fmt(n, unit) {
+    var a = Math.abs(n), isPct = unit === "%";
+    if (isPct) return nf(1).format(n);
+    if (a >= 1e9) return nf(a >= 1e10 ? 1 : 2).format(n / 1e9) + " mld";
+    if (a >= 1e6) return nf(a >= 1e7 ? 1 : 2).format(n / 1e6) + " mln";
+    if (a >= 1e4) return nf(1).format(n / 1e3) + " mila";
+    return nf(a >= 100 ? 0 : a >= 10 ? 1 : 2).format(n);
+  }
+  function parseDate(s) {
+    if (!s) return null; var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim()) || null, d;
+    if (m) d = new Date(+m[1], +m[2] - 1, +m[3]);
+    else { m = /^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/.exec(s.trim()); if (m) d = new Date(+m[3], +m[2] - 1, +m[1]); }
+    return d && !isNaN(d) ? d : null;
+  }
+  function dayDiff(d) { var t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((d - t) / 864e5); }
+
+  var DEMO = {
+    t: "Budget FY26", s: "Versione Budget 2026 · gennaio – settembre", a: "2026-09-30", cmp: "vs AP",
+    c: "Raccolta,Consolidamento,Approvazione,Chiusura", cs: "2",
+    k1: "Ricavi|1250000|1180000|€|u|1020000,1080000,1130000,1180000,1210000,1250000",
+    k2: "Costi|980000|1010000|€|d|1050000,1020000,1030000,1010000,990000,980000",
+    k3: "Margine|21.6|14.4|%|u|12,13,15,18,20,21.6",
+    k4: "EBITDA|270000|170000|€|u|-20000,60000,100000,170000,220000,270000",
+    k5: "Portafoglio ordini|4380000|4710000|€|u|5200000,5000000,4900000,4710000,4500000,4380000",
+    k6: "Organico|184|178||u",
+    n1: "alert|3 centri di costo senza budget inserito",
+    n2: "warn|Consolidamento: 2 filiali in attesa di conferma",
+    n3: "info|Nuove regole di ripartizione dei costi comuni dal 1 ottobre",
+    d1: "Chiusura raccolta|", d2: "Consolidamento filiali|", d3: "Approvazione Direzione|"
+  };
+  (function demoDates() {
+    var base = new Date(); base.setHours(0, 0, 0, 0);
+    [["d1", 3], ["d2", 9], ["d3", 21]].forEach(function (p) {
+      var d = new Date(base.getTime() + p[1] * 864e5), iso = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+      DEMO[p[0]] = DEMO[p[0]] + iso;
+    });
+  })();
+
+  var prev = {}; try { prev = JSON.parse((SS && SS.getItem("home_prev")) || "{}"); } catch (e) { prev = {}; }
+  var rafs = [];
+  function stopAnim() { rafs.forEach(cancelAnimationFrame); rafs = []; }
+
+  function fit(el) { // rimpicciolisce il valore finche' sta nella tessera
+    var size = 34; el.style.fontSize = size + "px";
+    while (el.scrollWidth > el.clientWidth && size > 15) { size -= 1; el.style.fontSize = size + "px"; }
+  }
+
+  function render() {
+    stopAnim();
+    var q = parse(location.hash || location.search), demo = !(q.k1 || q.k2 || q.k3 || q.t);
+    var d = demo ? DEMO : q, html = "";
+    var inset = parse(location.search).inset; if (inset === "0") document.documentElement.style.setProperty("--inset", "0px");
+
+    // testata
+    var ad = parseDate(d.a), asof = d.a ? (ad ? "Aggiornato al " + ad.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : d.a) : "";
+    html += '<header><div><h1>' + esc(d.t || "Home") + (demo ? '<span class="demo-badge">dati di esempio</span>' : "") + '</h1>' +
+            (d.s ? '<div class="sub">' + esc(d.s) + "</div>" : "") + "</div>" + (asof ? '<div class="asof">' + esc(asof) + "</div>" : "") + "</header>";
+
+    // ciclo
+    var phases = (d.c || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    if (phases.length) {
+      var cs = parseInt(d.cs || "0", 10), cb = parseInt(d.cb || "0", 10);
+      html += '<div class="steps" role="list">' + phases.map(function (nm, i) {
+        var n = i + 1, cls = n === cb ? "blk" : n < cs ? "done" : n === cs ? "cur" : "";
+        return '<div class="step ' + cls + '" role="listitem"><span class="dot">' + (cls === "done" ? "✓" : cls === "blk" ? "!" : n) + '</span><span class="nm">' + esc(nm) + "</span></div>";
+      }).join("") + "</div>";
+    }
+
+    // KPI
+    var cmpLab = d.cmp || "vs confronto", kpis = [];
+    for (var i = 1; i <= 6; i++) { if (d["k" + i] !== undefined) kpis.push({ key: "k" + i, f: d["k" + i].split("|") }); }
+    if (kpis.length) {
+      html += '<div class="grid n' + kpis.length + '">' + kpis.map(function (k) {
+        var f = k.f, v = num(f[1]), c = num(f[2]), unit = f[3] || "", dir = (f[4] || "u").toLowerCase() === "d" ? "d" : "u", ser = (f[5] || "").split(",").map(num).filter(function (x) { return x !== null; });
+        var dh = "", cls = "";
+        if (v !== null && c !== null) {
+          var diff = v - c, isPct = unit === "%", rel = c !== 0 ? diff / Math.abs(c) * 100 : null;
+          var good = diff === 0 ? null : (dir === "u" ? diff > 0 : diff < 0);
+          cls = good === null ? "" : good ? "good" : "bad";
+          var arrow = diff > 0 ? "▲" : diff < 0 ? "▼" : "■";
+          var amount = isPct ? (diff > 0 ? "+" : "") + nf(1).format(diff) + " p.p." : rel !== null ? (diff > 0 ? "+" : "") + nf(1).format(rel) + "%" : (diff > 0 ? "+" : "") + fmt(diff, unit);
+          dh = '<div class="d ' + cls + '"><b>' + arrow + " " + amount + "</b> " + esc(cmpLab) + "</div>";
+        } else dh = '<div class="d"></div>';
+        var spark = "";
+        if (ser.length > 1) {
+          var mn = Math.min.apply(null, ser), mx = Math.max.apply(null, ser), rg = mx - mn || 1;
+          var pts = ser.map(function (y, j) { return [(j / (ser.length - 1)) * 100, 26 - ((y - mn) / rg) * 22]; });
+          var line = "M" + pts.map(function (p) { return p[0].toFixed(2) + " " + p[1].toFixed(2); }).join(" L"), last = pts[pts.length - 1];
+          spark = '<svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path class="spark-area" d="' + line + " L100 30 L0 30Z" + '"/><path class="spark-line" pathLength="1" vector-effect="non-scaling-stroke" d="' + line + '"/></svg>';
+        }
+        return '<div class="card kpi ' + cls + (v === null ? " empty" : "") + '" data-k="' + k.key + '"><div class="l">' + esc(f[0] || k.key) + '</div><div class="v">' +
+               (v === null ? "—" : "") + "</div>" + dh + spark + "</div>";
+      }).join("") + "</div>";
+    }
+
+    // avvisi e scadenze
+    var nots = [], dls = [];
+    for (i = 1; i <= 4; i++) {
+      if (d["n" + i]) { var p = d["n" + i].split("|"); nots.push(p.length > 1 ? { lv: p[0].trim().toLowerCase(), tx: p.slice(1).join("|") } : { lv: "info", tx: p[0] }); }
+      if (d["d" + i]) { var q2 = d["d" + i].split("|"); dls.push({ lb: q2[0], dt: parseDate(q2[1]) }); }
+    }
+    var panels = "";
+    if (nots.length) panels += '<div class="card panel"><h2>Avvisi</h2>' + nots.map(function (n) {
+      var lv = ["warn", "alert"].indexOf(n.lv) >= 0 ? n.lv : "info";
+      return '<div class="row"><span class="rail ' + lv + '"></span><div class="tx">' + esc(n.tx) + "</div></div>";
+    }).join("") + "</div>";
+    if (dls.length) panels += '<div class="card panel"><h2>Scadenze</h2>' + dls.map(function (x) {
+      var chip = "", cl = "";
+      if (x.dt) { var n = dayDiff(x.dt); chip = n === 0 ? "oggi" : n > 0 ? "tra " + n + (n === 1 ? " giorno" : " giorni") : "scaduta da " + (-n) + (n === -1 ? " giorno" : " giorni"); cl = n < 0 ? "alert" : n <= 3 ? "warn" : ""; }
+      return '<div class="row"><div class="tx">' + esc(x.lb) + (x.dt ? '<div class="empty-note">' + x.dt.toLocaleDateString("it-IT", { day: "numeric", month: "long" }) + "</div>" : "") + "</div>" + (chip ? '<span class="chip ' + cl + '">' + chip + "</span>" : "") + "</div>";
+    }).join("") + "</div>";
+    if (panels) html += '<div class="two">' + panels + "</div>";
+
+    $("#app").innerHTML = html;
+
+    // valori animati dal precedente + adattamento alla larghezza
+    var next = {};
+    kpis.forEach(function (k) {
+      var card = $('[data-k="' + k.key + '"]'), vEl = $(".v", card), f = k.f, v = num(f[1]), unit = f[3] || "";
+      if (v === null) return; next[k.key] = v;
+      var from = typeof prev[k.key] === "number" ? prev[k.key] : 0, t0 = performance.now(), dur = reduce ? 0 : 900;
+      var show = function (x) { vEl.innerHTML = fmt(x, unit) + (unit ? "<small>" + esc(unit) + "</small>" : ""); fit(vEl); };
+      var step = function (t) { var p = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - Math.pow(1 - p, 3); show(from + (v - from) * e); if (p < 1) rafs.push(requestAnimationFrame(step)); };
+      rafs.push(requestAnimationFrame(step));
+    });
+    prev = next; try { if (SS) SS.setItem("home_prev", JSON.stringify(prev)); } catch (e) {}
+  }
+
+  render();
+  addEventListener("hashchange", render);
+  var rt; addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { document.querySelectorAll(".kpi .v").forEach(fit); }, 120); });
+})();
+</script>
+</body></html>
