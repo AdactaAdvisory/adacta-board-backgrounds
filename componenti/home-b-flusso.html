@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board componente — Home B — Flusso</title>
+<style>
+  /* B "Flusso": il processo di costing e' il protagonista. Le fasi sono tappe numerate con stato, una nota e un
+     indicatore di avanzamento; sotto, gli indicatori principali e le segnalazioni. Pensata per chi deve capire a che punto siamo. */
+  .top { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; padding-left:var(--inset); margin-bottom:16px; }
+  .flow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px 22px; margin-bottom:20px; counter-reset:f; }
+  @media (max-width:760px) { .flow { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:460px) { .flow { grid-template-columns:minmax(0,1fr); } }
+  .fc { position:relative; padding:14px 14px 14px; border-top:4px solid #cfd8ea; }
+  .fc.ok { border-top-color:var(--ok); } .fc.wip { border-top-color:var(--blue); } .fc.blk { border-top-color:var(--bad); }
+  .fc .n { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; background:#e9eef8; color:var(--muted); }
+  .fc.ok .n { background:var(--ok); color:#fff; } .fc.wip .n { background:var(--navy); color:#fff; } .fc.blk .n { background:var(--bad); color:#fff; }
+  .fc .nm { font-weight:700; color:var(--navy); margin:8px 0 2px; line-height:1.25; min-height:2.5em; }
+  .fc .st { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .fc.ok .st { color:var(--ok); } .fc.wip .st { color:var(--blue); } .fc.blk .st { color:var(--bad); }
+  .fc .nt { font-size:12.5px; color:var(--muted); margin-top:4px; min-height:1.3em; }
+  .fc .pb { height:5px; border-radius:3px; background:#e4eaf6; margin-top:10px; overflow:hidden; }
+  .fc .pb i { display:block; height:100%; border-radius:3px; background:var(--ok); width:100%; }
+  .fc.wip .pb i { width:60%; background:repeating-linear-gradient(135deg,var(--blue) 0 8px,#7f9fdc 8px 16px); }
+  .fc.todo .pb i { width:0; } .fc.blk .pb i { width:35%; background:var(--bad); }
+  @media (prefers-reduced-motion: no-preference) { .fc.wip .pb i { background-size:23px 23px; animation:stripes 1.2s linear infinite; } }
+  @keyframes stripes { to { background-position:23px 0; } }
+  .fc::after { content:"›"; position:absolute; right:-17px; top:44%; color:#9fb0d2; font-size:26px; line-height:1; }
+  .flow .fc:nth-child(4n)::after, .flow .fc:last-child::after { display:none; }
+  @media (max-width:760px) { .flow .fc:nth-child(4n)::after { display:block; } .flow .fc:nth-child(2n)::after { display:none; } }
+  @media (max-width:460px) { .fc::after { display:none !important; } }
+  .kt { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .kc { padding:12px 14px; border-top:3px solid var(--blue); min-width:0; }
+  .kc.good { border-top-color:var(--ok); } .kc.bad { border-top-color:var(--bad); }
+  .kc .l { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kc .v { font-size:26px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; line-height:1.2; margin-top:3px; white-space:nowrap; }
+  .kc .v small { font-size:.5em; color:var(--muted); font-weight:600; margin-left:4px; }
+  .kc .d { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:2px; }
+  .kc .d b { font-weight:700; }
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  /* Home del modello — dati dal frammento dell'URL (#...), costruito da un blocco Algorithm di tipo Text.
+     Senza parametri mostra dati di esempio (Beltrame Costing). Regge sia il ricaricamento sia hashchange.
+     Parametri (separati da &; campi interni separati da |; negli testi lo spazio e' +; evitare & e |):
+       t=Titolo  s=Sottotitolo  a=Aggiornato al (AAAA-MM-GG o testo)  cmp=etichetta del confronto (es. vs budget)
+       k1..k6=Etichetta|valore|confronto|unita|segno|serie     segno: u (piu' e' meglio), d (meno e' meglio), n (neutro)
+       p1..p8=Fase|stato|nota                                  stato: ok, wip, todo, blk
+       r1..r14=Gruppo|Voce|valore|confronto|unita|segno        righe di dettaglio (costi per area)
+       n1..n4=livello|Testo (info, warn, alert)                d1..d4=Etichetta|AAAA-MM-GG
+     Pagina: ?inset=0 toglie il margine a sinistra della testata (lasciato libero per l'icona di Board).  */
+
+  :root { --navy:#001a72; --blue:#4f79c9; --bar:#5b86d6; --accent:#f5b800; --ink:#1a1a1a; --muted:#6b7280; --line:#dbe2ef;
+          --ok:#2e9e5b; --warn:#c77700; --bad:#c0392b; --inset:44px; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  body { font:14px/1.45 "Open Sans", Arial, sans-serif; color:var(--ink); background:#fff; }
+  .wrap { padding:16px 22px 24px; }
+  h1 { font-size:22px; line-height:1.2; margin:0; color:var(--navy); letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+  .asof { color:var(--muted); font-size:12px; white-space:nowrap; }
+  .demo-badge { display:inline-block; margin-left:8px; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:600; background:#fff3dd; color:var(--warn); vertical-align:2px; letter-spacing:0; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 1px 2px rgba(20,40,90,.07), 0 10px 22px -14px rgba(30,60,130,.35); }
+  .good { color:var(--ok); } .bad { color:var(--bad); }
+  .row { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-top:1px solid #eef1f7; }
+  .row:first-of-type { border-top:0; }
+  .rail { flex:none; width:4px; align-self:stretch; border-radius:2px; background:var(--blue); }
+  .rail.warn { background:#e5a000; } .rail.alert { background:var(--bad); }
+  .row .tx { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .chip { flex:none; padding:2px 9px; border-radius:11px; font-size:11.5px; font-weight:600; background:#e9eef8; color:var(--navy); white-space:nowrap; }
+  .chip.warn { background:#fff3dd; color:var(--warn); } .chip.alert { background:#fdebe9; color:var(--bad); } .chip.ok { background:#e3f5ea; color:var(--ok); }
+  .panel { padding:14px 16px; } .panel h2 { margin:0 0 6px; font-size:12px; color:var(--navy); text-transform:uppercase; letter-spacing:.06em; }
+  .note { color:var(--muted); font-size:12.5px; }
+  .spark-line { fill:none; stroke:var(--blue); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round; }
+  .spark-area { fill:rgba(79,121,201,.10); stroke:none; }
+  @media (prefers-reduced-motion: no-preference) { .spark-line { stroke-dasharray:1; stroke-dashoffset:1; animation:draw 1s .15s ease-out forwards; } }
+  @keyframes draw { to { stroke-dashoffset:0; } }
+
+  /* B "Flusso": il processo di costing e' il protagonista. Le fasi sono tappe numerate con stato, una nota e un
+     indicatore di avanzamento; sotto, gli indicatori principali e le segnalazioni. Pensata per chi deve capire a che punto siamo. */
+  .top { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; padding-left:var(--inset); margin-bottom:16px; }
+  .flow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px 22px; margin-bottom:20px; counter-reset:f; }
+  @media (max-width:760px) { .flow { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:460px) { .flow { grid-template-columns:minmax(0,1fr); } }
+  .fc { position:relative; padding:14px 14px 14px; border-top:4px solid #cfd8ea; }
+  .fc.ok { border-top-color:var(--ok); } .fc.wip { border-top-color:var(--blue); } .fc.blk { border-top-color:var(--bad); }
+  .fc .n { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; background:#e9eef8; color:var(--muted); }
+  .fc.ok .n { background:var(--ok); color:#fff; } .fc.wip .n { background:var(--navy); color:#fff; } .fc.blk .n { background:var(--bad); color:#fff; }
+  .fc .nm { font-weight:700; color:var(--navy); margin:8px 0 2px; line-height:1.25; min-height:2.5em; }
+  .fc .st { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .fc.ok .st { color:var(--ok); } .fc.wip .st { color:var(--blue); } .fc.blk .st { color:var(--bad); }
+  .fc .nt { font-size:12.5px; color:var(--muted); margin-top:4px; min-height:1.3em; }
+  .fc .pb { height:5px; border-radius:3px; background:#e4eaf6; margin-top:10px; overflow:hidden; }
+  .fc .pb i { display:block; height:100%; border-radius:3px; background:var(--ok); width:100%; }
+  .fc.wip .pb i { width:60%; background:repeating-linear-gradient(135deg,var(--blue) 0 8px,#7f9fdc 8px 16px); }
+  .fc.todo .pb i { width:0; } .fc.blk .pb i { width:35%; background:var(--bad); }
+  @media (prefers-reduced-motion: no-preference) { .fc.wip .pb i { background-size:23px 23px; animation:stripes 1.2s linear infinite; } }
+  @keyframes stripes { to { background-position:23px 0; } }
+  .fc::after { content:"›"; position:absolute; right:-17px; top:44%; color:#9fb0d2; font-size:26px; line-height:1; }
+  .flow .fc:nth-child(4n)::after, .flow .fc:last-child::after { display:none; }
+  @media (max-width:760px) { .flow .fc:nth-child(4n)::after { display:block; } .flow .fc:nth-child(2n)::after { display:none; } }
+  @media (max-width:460px) { .fc::after { display:none !important; } }
+  .kt { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .kc { padding:12px 14px; border-top:3px solid var(--blue); min-width:0; }
+  .kc.good { border-top-color:var(--ok); } .kc.bad { border-top-color:var(--bad); }
+  .kc .l { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kc .v { font-size:26px; font-weight:700; color:var(--navy); font-variant-numeric:tabular-nums; line-height:1.2; margin-top:3px; white-space:nowrap; }
+  .kc .v small { font-size:.5em; color:var(--muted); font-weight:600; margin-left:4px; }
+  .kc .d { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:2px; }
+  .kc .d b { font-weight:700; }
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+</style></head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var SS = null; try { SS = window.sessionStorage; SS.setItem("h_t", "1"); SS.removeItem("h_t"); } catch (e) { SS = null; }
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var nf = function (d) { return new Intl.NumberFormat("it-IT", { maximumFractionDigits: d, minimumFractionDigits: 0 }); };
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function parse(str) {
+    var o = {}; str = (str || "").replace(/^[#?]/, ""); if (!str) return o;
+    str.split("&").forEach(function (p) {
+      if (!p) return; var i = p.indexOf("="), k = i < 0 ? p : p.slice(0, i), v = i < 0 ? "" : p.slice(i + 1);
+      try { k = decodeURIComponent(k.replace(/\+/g, " ")); v = decodeURIComponent(v.replace(/\+/g, " ")); } catch (e) {}
+      o[k] = v;
+    });
+    return o;
+  }
+  function num(s) {
+    if (s === undefined || s === null || String(s).trim() === "") return null;
+    var t = String(s).trim().replace(/\s/g, "");
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
+    else if (/^-?\d+,\d+$/.test(t)) t = t.replace(",", ".");
+    var n = Number(t); return isFinite(n) ? n : null;
+  }
+  // numeri leggibili in poco spazio: 38.200.000 -> 38,2 mln ; 32.235.333.201 -> 32,2 mld
+  function fmt(n, unit) {
+    var a = Math.abs(n); unit = unit || "";
+    if (unit === "%" || unit.indexOf("/") >= 0) return nf(a >= 100 ? 0 : a >= 10 ? 1 : 2).format(n);
+    if (a >= 1e9) return nf(a >= 1e10 ? 1 : 2).format(n / 1e9) + " mld";
+    if (a >= 1e6) return nf(a >= 1e7 ? 1 : 2).format(n / 1e6) + " mln";
+    if (a >= 1e4) return nf(1).format(n / 1e3) + " mila";
+    return nf(a >= 100 ? 0 : a >= 10 ? 1 : 2).format(n);
+  }
+  function parseDate(s) {
+    if (!s) return null; var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim()), d;
+    if (m) d = new Date(+m[1], +m[2] - 1, +m[3]);
+    else { m = /^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/.exec(s.trim()); if (m) d = new Date(+m[3], +m[2] - 1, +m[1]); }
+    return d && !isNaN(d) ? d : null;
+  }
+  function dayDiff(d) { var t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((d - t) / 864e5); }
+  function iso(offset) { var d = new Date(); d.setHours(0, 0, 0, 0); d = new Date(d.getTime() + offset * 864e5); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+
+  var DEMO = {
+    t: "Beltrame Costing", s: "Costo del prodotto · consuntivo luglio 2026", a: iso(0), cmp: "vs budget",
+    k1: "Costo del prodotto|612|598|€/t|d|640,632,625,618,610,612",
+    k2: "Costo medio di chiusura|587|571|€/t|d|600,596,590,584,580,587",
+    k3: "Valore giacenze|48200000|45100000|€|n|42000000,43500000,44800000,45100000,46900000,48200000",
+    k4: "COGS|112400000|108900000|€|d|98000000,101000000,105000000,108900000,110500000,112400000",
+    k5: "Produzione|184500|181200|t|u|172000,176000,179000,181200,183000,184500",
+    k6: "Energia per tonnellata|0.62|0.60|MWh/t|d|0.58,0.59,0.60,0.61,0.62,0.62",
+    p1: "Caricamento dati|ok|6 flussi", p2: "Driver|ok|42 driver", p3: "Costi acciaieria|ok|6 voci", p4: "Costi laminatoio|wip|3 di 4 voci",
+    p5: "Trasferimenti|todo|", p6: "Giacenze|todo|", p7: "Costo medio di chiusura|todo|", p8: "Costo del prodotto|todo|",
+    r1: "Acciaieria|Rottame|38200000|36900000|€|d", r2: "Acciaieria|Elettrodi e refrattari|6100000|5800000|€|d",
+    r3: "Acciaieria|Gas tecnici|4300000|4500000|€|d", r4: "Acciaieria|Energia|21800000|20500000|€|d",
+    r5: "Acciaieria|Personale|9600000|9500000|€|d", r6: "Acciaieria|Controllate|5200000|5200000|€|d",
+    r7: "Laminatoio|Billette|31500000|30800000|€|d", r8: "Laminatoio|Energia|7900000|7400000|€|d",
+    r9: "Laminatoio|Personale|6400000|6500000|€|d", r10: "Laminatoio|Altri costi|3800000|3500000|€|d",
+    n1: "alert|Laminatoio: mancano i costi del personale di 1 sito",
+    n2: "warn|Energia acciaieria 6% sopra il budget",
+    n3: "info|Nuovo driver di ripartizione dei gas tecnici dal prossimo mese",
+    d1: "Chiusura caricamento dati|" + iso(2), d2: "Costi laminatoio completi|" + iso(5), d3: "Costo del prodotto in revisione|" + iso(12)
+  };
+
+  function load() {
+    var q = parse(location.hash || location.search), demo = !(q.t || q.k1 || q.p1 || q.r1), d = demo ? DEMO : q;
+    var ins = parse(location.search).inset; if (ins === "0") document.documentElement.style.setProperty("--inset", "0px");
+    var m = { demo: demo, t: d.t || "Home", s: d.s || "", a: d.a || "", cmp: d.cmp || "vs confronto", k: [], p: [], r: [], n: [], dl: [] }, i, f;
+    for (i = 1; i <= 6; i++) if (d["k" + i] !== undefined) { f = d["k" + i].split("|"); m.k.push({ key: "k" + i, label: f[0] || "", v: num(f[1]), c: num(f[2]), unit: f[3] || "", dir: (f[4] || "u").toLowerCase(), ser: (f[5] || "").split(",").map(num).filter(function (x) { return x !== null; }) }); }
+    for (i = 1; i <= 8; i++) if (d["p" + i] !== undefined) { f = d["p" + i].split("|"); m.p.push({ label: f[0] || "", st: (f[1] || "todo").toLowerCase(), note: f.slice(2).join("|") }); }
+    for (i = 1; i <= 14; i++) if (d["r" + i] !== undefined) { f = d["r" + i].split("|"); m.r.push({ key: "r" + i, group: f[0] || "", label: f[1] || "", v: num(f[2]), c: num(f[3]), unit: f[4] || "", dir: (f[5] || "d").toLowerCase() }); }
+    for (i = 1; i <= 4; i++) {
+      if (d["n" + i]) { f = d["n" + i].split("|"); m.n.push(f.length > 1 ? { lv: f[0].trim().toLowerCase(), tx: f.slice(1).join("|") } : { lv: "info", tx: f[0] }); }
+      if (d["d" + i]) { f = d["d" + i].split("|"); m.dl.push({ lb: f[0], dt: parseDate(f[1]) }); }
+    }
+    var ad = parseDate(m.a); m.asof = m.a ? (ad ? "Aggiornato al " + ad.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : m.a) : "";
+    return m;
+  }
+
+  // confronto: classe (good/bad/""), freccia, testo
+  function delta(v, c, unit, dir) {
+    if (v === null || c === null) return { cls: "", arrow: "", text: "", rel: null };
+    var diff = v - c, rel = c !== 0 ? diff / Math.abs(c) * 100 : null, pct = unit === "%";
+    var good = diff === 0 || dir === "n" ? null : (dir === "d" ? diff < 0 : diff > 0);
+    var text = pct ? (diff > 0 ? "+" : "") + nf(1).format(diff) + " p.p." : rel !== null ? (diff > 0 ? "+" : "") + nf(1).format(rel) + "%" : (diff > 0 ? "+" : "") + fmt(diff, unit);
+    return { cls: good === null ? "" : good ? "good" : "bad", arrow: diff > 0 ? "▲" : diff < 0 ? "▼" : "■", text: text, rel: rel, diff: diff };
+  }
+  function spark(ser, h, extra) {
+    if (!ser || ser.length < 2) return "";
+    var mn = Math.min.apply(null, ser), mx = Math.max.apply(null, ser), rg = mx - mn || 1;
+    var pts = ser.map(function (y, j) { return [(j / (ser.length - 1)) * 100, (h - 4) - ((y - mn) / rg) * (h - 8)]; });
+    var line = "M" + pts.map(function (p) { return p[0].toFixed(2) + " " + p[1].toFixed(2); }).join(" L");
+    return '<svg class="spark" viewBox="0 0 100 ' + h + '" preserveAspectRatio="none" aria-hidden="true" ' + (extra || "") + '><path class="spark-area" d="' + line + " L100 " + h + " L0 " + h + 'Z"/><path class="spark-line" pathLength="1" vector-effect="non-scaling-stroke" d="' + line + '"/></svg>';
+  }
+  function lists(m) {
+    var h = "";
+    if (m.n.length) h += '<div class="card panel"><h2>Avvisi</h2>' + m.n.map(function (n) {
+      var lv = ["warn", "alert"].indexOf(n.lv) >= 0 ? n.lv : "info";
+      return '<div class="row"><span class="rail ' + lv + '"></span><div class="tx">' + esc(n.tx) + "</div></div>";
+    }).join("") + "</div>";
+    if (m.dl.length) h += '<div class="card panel"><h2>Scadenze</h2>' + m.dl.map(function (x) {
+      var chip = "", cl = "";
+      if (x.dt) { var n = dayDiff(x.dt); chip = n === 0 ? "oggi" : n > 0 ? "tra " + n + (n === 1 ? " giorno" : " giorni") : "scaduta da " + (-n) + (n === -1 ? " giorno" : " giorni"); cl = n < 0 ? "alert" : n <= 3 ? "warn" : ""; }
+      return '<div class="row"><div class="tx">' + esc(x.lb) + (x.dt ? '<div class="note">' + x.dt.toLocaleDateString("it-IT", { day: "numeric", month: "long" }) + "</div>" : "") + "</div>" + (chip ? '<span class="chip ' + cl + '">' + chip + "</span>" : "") + "</div>";
+    }).join("") + "</div>";
+    return h;
+  }
+  var STLAB = { ok: "Completata", wip: "In corso", todo: "Da fare", blk: "Bloccata" };
+  function stage(m) { // indice (1-based) della fase corrente: bloccata, altrimenti in corso, altrimenti la prima da fare
+    var i, b = 0, w = 0, t = 0;
+    for (i = 0; i < m.p.length; i++) { if (m.p[i].st === "blk" && !b) b = i + 1; if (m.p[i].st === "wip" && !w) w = i + 1; if (m.p[i].st === "todo" && !t) t = i + 1; }
+    return b || w || t || 0;
+  }
+
+  // animazione dei valori dal precedente + adattamento alla larghezza
+  var prev = {}; try { prev = JSON.parse((SS && SS.getItem("home_prev")) || "{}"); } catch (e) { prev = {}; }
+  var rafs = [];
+  function stopAnim() { rafs.forEach(cancelAnimationFrame); rafs = []; }
+  function fit(el) { var mx = parseFloat(el.getAttribute("data-max") || 34), size = mx; el.style.fontSize = size + "px"; while (el.scrollWidth > el.clientWidth + 1 && size > 14) { size -= 1; el.style.fontSize = size + "px"; } }
+  function animate(root) {
+    var next = {};
+    (root || document).querySelectorAll("[data-v]").forEach(function (el) {
+      var v = Number(el.getAttribute("data-v")), unit = el.getAttribute("data-u") || "", key = el.getAttribute("data-k"), suffix = el.getAttribute("data-s") === "1";
+      next[key] = v;
+      var from = typeof prev[key] === "number" ? prev[key] : 0, t0 = performance.now(), dur = reduce ? 0 : 900;
+      var show = function (x) { el.innerHTML = fmt(x, unit) + (suffix && unit ? "<small>" + esc(unit) + "</small>" : ""); if (el.hasAttribute("data-max")) fit(el); };
+      var step = function (t) { var p = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - Math.pow(1 - p, 3); show(from + (v - from) * e); if (p < 1) rafs.push(requestAnimationFrame(step)); };
+      rafs.push(requestAnimationFrame(step));
+    });
+    prev = next; try { if (SS) SS.setItem("home_prev", JSON.stringify(prev)); } catch (e) {}
+  }
+  function valAttr(key, v, unit, suffix, max) { return v === null ? "" : ' data-v="' + v + '" data-k="' + key + '" data-u="' + esc(unit) + '"' + (suffix ? ' data-s="1"' : "") + (max ? ' data-max="' + max + '"' : ""); }
+  function headBlock(m) {
+    return '<h1>' + esc(m.t) + (m.demo ? '<span class="demo-badge">dati di esempio</span>' : "") + "</h1>" + (m.s ? '<div class="sub">' + esc(m.s) + "</div>" : "");
+  }
+
+  
+  function view(m) {
+    var h = '<div class="top"><div>' + headBlock(m) + "</div>" + (m.asof ? '<div class="asof">' + esc(m.asof) + "</div>" : "") + "</div>";
+    if (m.p.length) h += '<div class="flow">' + m.p.map(function (x, i) {
+      var st = STLAB[x.st] ? x.st : "todo";
+      return '<div class="card fc ' + st + '"><div class="n">' + (st === "ok" ? "✓" : st === "blk" ? "!" : i + 1) + '</div><div class="nm">' + esc(x.label) + '</div><div class="st">' + STLAB[st] + '</div><div class="nt">' + esc(x.note) + '</div><div class="pb"><i></i></div></div>';
+    }).join("") + "</div>";
+    if (m.k.length) h += '<div class="kt">' + m.k.map(function (k) {
+      var d = delta(k.v, k.c, k.unit, k.dir);
+      return '<div class="card kc ' + d.cls + '"><div class="l">' + esc(k.label) + '</div><div class="v"' + valAttr(k.key, k.v, k.unit, true, 26) + ">" + (k.v === null ? "—" : "") + '</div><div class="d">' +
+             (d.text ? '<b class="' + d.cls + '">' + d.arrow + " " + d.text + "</b> " + esc(m.cmp) : "") + "</div></div>";
+    }).join("") + "</div>";
+    var l = lists(m); if (l) h += '<div class="two">' + l + "</div>";
+    return h;
+  }
+
+
+  function render() { stopAnim(); var m = load(); $("#app").innerHTML = view(m); animate($("#app")); }
+  render(); addEventListener("hashchange", render);
+  var rt; addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { document.querySelectorAll("[data-max]").forEach(fit); }, 120); });
+})();
+</script>
+</body></html>

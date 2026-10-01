@@ -23,4 +23,5 @@ Le modifiche a `v1/` cambiano tutte le maschere che lo usano: per cambiamenti in
 
 ## Componenti
 
-`/componenti/home.html` — home del modello (testata, avanzamento del ciclo, tessere KPI con confronto e andamento, avvisi, scadenze). Dati dal frammento dell URL; senza parametri mostra dati di esempio. Il contratto dei parametri e nel commento in testa al file.
+
+Proposte di home sul modello Beltrame Costing (dati di esempio, stesso contratto di parametri, descritto nel commento in testa a ogni file): `/componenti/home-a-scorecard.html`, `/componenti/home-b-flusso.html`, `/componenti/home-c-torre.html`.
